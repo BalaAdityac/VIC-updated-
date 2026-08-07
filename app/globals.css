@@ -1,0 +1,598 @@
+@import "tailwindcss";
+
+:root {
+  /* ========================================
+     LILAC PURPLE THEME
+     ======================================== */
+
+  --background: #faf9ff;
+  --foreground: #211a4d;
+
+  /* Main Purple */
+  --primary: #6d5bd0;
+  --primary-dark: #5141a8;
+  --primary-deep: #3f327f;
+  --primary-light: #9b8ee8;
+
+  /* Lilac */
+  --lilac-50: #faf9ff;
+  --lilac-100: #f4f1ff;
+  --lilac-200: #ebe7ff;
+  --lilac-300: #ddd7ff;
+  --lilac-400: #c8bfff;
+  --lilac-500: #a99beF;
+  --lilac-600: #8d7ddd;
+
+  /* Purple */
+  --purple-500: #806bd6;
+  --purple-600: #6d5bd0;
+  --purple-700: #5b48b8;
+  --purple-800: #493a91;
+  --purple-900: #352b70;
+
+  /* Soft Backgrounds */
+  --soft-purple: #f0edff;
+  --soft-lilac: #e8e3ff;
+  --pale-lilac: #f7f5ff;
+
+  /* White */
+  --white: #ffffff;
+
+  /* Neutrals */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f7;
+  --gray-200: #e7e5ed;
+  --gray-300: #d6d3df;
+  --gray-400: #aaa6b8;
+  --gray-500: #777286;
+  --gray-600: #5d586b;
+  --gray-700: #454151;
+  --gray-800: #302d3a;
+  --gray-900: #211f28;
+}
+
+/* ========================================
+   THEME
+   ======================================== */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
+
+  --color-purple-500: var(--purple-500);
+  --color-purple-600: var(--purple-600);
+  --color-purple-700: var(--purple-700);
+  --color-purple-800: var(--purple-800);
+  --color-purple-900: var(--purple-900);
+
+  --color-lilac-100: var(--lilac-100);
+  --color-lilac-200: var(--lilac-200);
+  --color-lilac-300: var(--lilac-300);
+  --color-lilac-400: var(--lilac-400);
+  --color-lilac-500: var(--lilac-500);
+  --color-lilac-600: var(--lilac-600);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ========================================
+   BASE
+   ======================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* ========================================
+   BLUE → LILAC PURPLE OVERRIDES
+   ======================================== */
+
+/* Text */
+
+.text-blue-300,
+.text-blue-400,
+.text-blue-500,
+.text-blue-600,
+.text-blue-700,
+.text-blue-800,
+.text-cyan-300,
+.text-cyan-400,
+.text-cyan-500,
+.text-cyan-600,
+.text-cyan-700,
+.text-sky-300,
+.text-sky-400,
+.text-sky-500,
+.text-sky-600,
+.text-sky-700 {
+  color: #6d5bd0 !important;
+}
+
+/* Backgrounds */
+
+.bg-blue-300,
+.bg-blue-400,
+.bg-blue-500,
+.bg-blue-600,
+.bg-blue-700,
+.bg-cyan-300,
+.bg-cyan-400,
+.bg-cyan-500,
+.bg-cyan-600,
+.bg-cyan-700,
+.bg-sky-300,
+.bg-sky-400,
+.bg-sky-500,
+.bg-sky-600,
+.bg-sky-700 {
+  background-color: #6d5bd0 !important;
+}
+
+/* Soft Blue Backgrounds → Lilac */
+
+.bg-blue-50,
+.bg-blue-100,
+.bg-blue-200,
+.bg-cyan-50,
+.bg-cyan-100,
+.bg-cyan-200,
+.bg-sky-50,
+.bg-sky-100,
+.bg-sky-200 {
+  background-color: #eeeaff !important;
+}
+
+/* Borders */
+
+.border-blue-300,
+.border-blue-400,
+.border-blue-500,
+.border-blue-600,
+.border-cyan-300,
+.border-cyan-400,
+.border-cyan-500,
+.border-cyan-600,
+.border-sky-300,
+.border-sky-400,
+.border-sky-500,
+.border-sky-600 {
+  border-color: #8d7ddd !important;
+}
+
+/* ========================================
+   HOVER STATES
+   ======================================== */
+
+.hover\:text-blue-400:hover,
+.hover\:text-blue-500:hover,
+.hover\:text-blue-600:hover,
+.hover\:text-cyan-400:hover,
+.hover\:text-cyan-500:hover,
+.hover\:text-cyan-600:hover,
+.hover\:text-sky-400:hover,
+.hover\:text-sky-500:hover,
+.hover\:text-sky-600:hover {
+  color: #5141a8 !important;
+}
+
+.hover\:bg-blue-500:hover,
+.hover\:bg-blue-600:hover,
+.hover\:bg-cyan-500:hover,
+.hover\:bg-cyan-600:hover,
+.hover\:bg-sky-500:hover,
+.hover\:bg-sky-600:hover {
+  background-color: #5141a8 !important;
+}
+
+/* ========================================
+   GRADIENT OVERRIDES
+   ======================================== */
+
+/* Any existing blue gradients */
+
+.from-blue-50 {
+  --tw-gradient-from: #f7f5ff !important;
+}
+
+.from-blue-100 {
+  --tw-gradient-from: #eeeaff !important;
+}
+
+.from-blue-200 {
+  --tw-gradient-from: #e8e3ff !important;
+}
+
+.from-blue-300 {
+  --tw-gradient-from: #ddd7ff !important;
+}
+
+.from-blue-400 {
+  --tw-gradient-from: #c8bfff !important;
+}
+
+.from-blue-500 {
+  --tw-gradient-from: #8d7ddd !important;
+}
+
+.from-blue-600 {
+  --tw-gradient-from: #6d5bd0 !important;
+}
+
+.to-blue-50 {
+  --tw-gradient-to: #f7f5ff !important;
+}
+
+.to-blue-100 {
+  --tw-gradient-to: #eeeaff !important;
+}
+
+.to-blue-200 {
+  --tw-gradient-to: #e8e3ff !important;
+}
+
+.to-blue-300 {
+  --tw-gradient-to: #ddd7ff !important;
+}
+
+.to-blue-400 {
+  --tw-gradient-to: #c8bfff !important;
+}
+
+.to-blue-500 {
+  --tw-gradient-to: #8d7ddd !important;
+}
+
+.to-blue-600 {
+  --tw-gradient-to: #6d5bd0 !important;
+}
+
+/* Cyan gradients → Lilac */
+
+.from-cyan-50 {
+  --tw-gradient-from: #faf9ff !important;
+}
+
+.from-cyan-100 {
+  --tw-gradient-from: #f4f1ff !important;
+}
+
+.from-cyan-200 {
+  --tw-gradient-from: #ebe7ff !important;
+}
+
+.from-cyan-300 {
+  --tw-gradient-from: #ddd7ff !important;
+}
+
+.from-cyan-400 {
+  --tw-gradient-from: #c8bfff !important;
+}
+
+.from-cyan-500 {
+  --tw-gradient-from: #8d7ddd !important;
+}
+
+.to-cyan-50 {
+  --tw-gradient-to: #faf9ff !important;
+}
+
+.to-cyan-100 {
+  --tw-gradient-to: #f4f1ff !important;
+}
+
+.to-cyan-200 {
+  --tw-gradient-to: #ebe7ff !important;
+}
+
+.to-cyan-300 {
+  --tw-gradient-to: #ddd7ff !important;
+}
+
+.to-cyan-400 {
+  --tw-gradient-to: #c8bfff !important;
+}
+
+.to-cyan-500 {
+  --tw-gradient-to: #8d7ddd !important;
+}
+
+/* Sky gradients → Lilac */
+
+.from-sky-50 {
+  --tw-gradient-from: #faf9ff !important;
+}
+
+.from-sky-100 {
+  --tw-gradient-from: #f4f1ff !important;
+}
+
+.from-sky-200 {
+  --tw-gradient-from: #ebe7ff !important;
+}
+
+.from-sky-300 {
+  --tw-gradient-from: #ddd7ff !important;
+}
+
+.from-sky-400 {
+  --tw-gradient-from: #c8bfff !important;
+}
+
+.from-sky-500 {
+  --tw-gradient-from: #8d7ddd !important;
+}
+
+.to-sky-50 {
+  --tw-gradient-to: #faf9ff !important;
+}
+
+.to-sky-100 {
+  --tw-gradient-to: #f4f1ff !important;
+}
+
+.to-sky-200 {
+  --tw-gradient-to: #ebe7ff !important;
+}
+
+.to-sky-300 {
+  --tw-gradient-to: #ddd7ff !important;
+}
+
+.to-sky-400 {
+  --tw-gradient-to: #c8bfff !important;
+}
+
+.to-sky-500 {
+  --tw-gradient-to: #8d7ddd !important;
+}
+
+/* ========================================
+   CUSTOM LILAC GRADIENTS
+   ======================================== */
+
+.lilac-gradient {
+  background: linear-gradient(
+    135deg,
+    #f7f5ff 0%,
+    #eeeaff 35%,
+    #e8e3ff 70%,
+    #ddd7ff 100%
+  );
+}
+
+.purple-gradient {
+  background: linear-gradient(
+    135deg,
+    #5b48b8 0%,
+    #6d5bd0 40%,
+    #806bd6 70%,
+    #a99bef 100%
+  );
+}
+
+.soft-purple-gradient {
+  background: linear-gradient(
+    135deg,
+    #f7f5ff 0%,
+    #f0edff 45%,
+    #e8e3ff 100%
+  );
+}
+
+.lilac-purple-gradient {
+  background: linear-gradient(
+    135deg,
+    #eeeaff 0%,
+    #ddd7ff 45%,
+    #c8bfff 100%
+  );
+}
+
+/* ========================================
+   GRADIENT TEXT
+   ======================================== */
+
+.purple-text-gradient {
+  background: linear-gradient(
+    135deg,
+    #5141a8 0%,
+    #6d5bd0 45%,
+    #9b8ee8 100%
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+button,
+.btn-primary {
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.btn-primary {
+  background: #6d5bd0;
+  color: #ffffff;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #5141a8;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(109, 91, 208, 0.25);
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+
+a {
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+a:hover {
+  color: #6d5bd0;
+}
+
+/* ========================================
+   INPUTS
+   ======================================== */
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #8d7ddd !important;
+  box-shadow: 0 0 0 3px rgba(109, 91, 208, 0.12);
+  outline: none;
+}
+
+/* ========================================
+   FOCUS
+   ======================================== */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #6d5bd0;
+  outline-offset: 3px;
+}
+
+/* ========================================
+   PURPLE / LILAC GLOW
+   ======================================== */
+
+.purple-glow {
+  box-shadow:
+    0 0 25px rgba(109, 91, 208, 0.18),
+    0 0 50px rgba(155, 142, 232, 0.12);
+}
+
+.lilac-glow {
+  box-shadow:
+    0 20px 50px rgba(109, 91, 208, 0.12),
+    0 0 80px rgba(200, 191, 255, 0.18);
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulsePurple {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(109, 91, 208, 0.25);
+  }
+
+  50% {
+    box-shadow: 0 0 0 12px rgba(109, 91, 208, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.7s ease-out both;
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-purple {
+  animation: pulsePurple 2s infinite;
+}
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f7f5ff;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c8bfff;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6d5bd0;
+}
+
+/* ========================================
+   TEXT SELECTION
+   ======================================== */
+
+::selection {
+  background: #ddd7ff;
+  color: #352b70;
+}
+
+/* ========================================
+   MOBILE
+   ======================================== */
+
+@media (max-width: 768px) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+}
