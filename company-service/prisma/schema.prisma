@@ -1,0 +1,76 @@
+// Prisma Schema for Company Service (Isolated ATS Microservice)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InternshipMode {
+  REMOTE
+  HYBRID
+  ON_SITE
+}
+
+enum InternshipStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+model Company {
+  id               String        @id @default(uuid()) @db.Uuid
+  companyName      String        @map("company_name") @db.VarChar(100)
+  email            String        @unique @db.VarChar(255)
+  passwordHash     String        @map("password_hash") @db.Text
+  website          String?       @db.Text
+  description      String?       @db.Text
+  address          String?       @db.Text
+  gstNumber        String?       @map("gst_number") @db.VarChar(50)
+  status           CompanyStatus @default(PENDING)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz
+
+  internships      Internship[]
+
+  @@index([email])
+  @@index([status])
+  @@map("companies")
+}
+
+model Internship {
+  id             String           @id @default(uuid()) @db.Uuid
+  companyId      String           @map("company_id") @db.Uuid
+  title          String           @db.VarChar(150)
+  description    String           @db.Text
+  location       String           @db.VarChar(100)
+  mode           InternshipMode   @default(REMOTE)
+  salary         Decimal?         @db.Decimal(10, 2)
+  stipend        Decimal?         @db.Decimal(10, 2)
+  durationMonths Int?             @map("duration_months")
+  skills         String[]         @db.Text
+  status         InternshipStatus @default(DRAFT)
+  deadline       DateTime?        @db.Timestamptz
+  publishedAt    DateTime         @default(now()) @map("published_at") @db.Timestamptz
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz
+
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([companyId, status])
+  @@map("internships")
+}

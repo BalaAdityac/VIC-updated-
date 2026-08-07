@@ -1,0 +1,323 @@
+{
+  "info": {
+    "_postman_id": "c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+    "name": "VIC Company Service API Collection",
+    "description": "Complete Postman collection for testing Company Registration, Auth, Profile CRUD, and Internship Management with Ownership Verification.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "internshipId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Company Auth & Profile",
+      "item": [
+        {
+          "name": "1. Register Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Acme Tech Labs\",\n  \"email\": \"hr@acmetech.com\",\n  \"password\": \"Secret123!\",\n  \"website\": \"https://acmetech.com\",\n  \"description\": \"Pioneering AI & Cloud Software Development\",\n  \"address\": \"Tech Park, Building 4, Bengaluru, India\",\n  \"gstNumber\": \"29ABCDE1234F1ZH\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "register"]
+            }
+          }
+        },
+        {
+          "name": "2. Company Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hr@acmetech.com\",\n  \"password\": \"Secret123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "login"]
+            }
+          }
+        },
+        {
+          "name": "3. Get Company Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "profile"]
+            }
+          }
+        },
+        {
+          "name": "4. Update Company Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"website\": \"https://careers.acmetech.com\",\n  \"description\": \"Updated description for global recruitment drives.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/company/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "profile"]
+            }
+          }
+        },
+        {
+          "name": "5. Delete Company Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/company/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "company", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internship Management",
+      "item": [
+        {
+          "name": "1. Create Internship",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.internship && jsonData.internship.id) {",
+                  "    pm.collectionVariables.set('internshipId', jsonData.internship.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Backend Software Engineer Intern\",\n  \"description\": \"Work with Node.js, Fastify, PostgreSQL, and Prisma to build scalable cloud microservices.\",\n  \"location\": \"Bengaluru\",\n  \"mode\": \"HYBRID\",\n  \"stipend\": 35000,\n  \"durationMonths\": 6,\n  \"skills\": [\"Node.js\", \"TypeScript\", \"PostgreSQL\", \"Prisma\"],\n  \"status\": \"DRAFT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships"]
+            }
+          }
+        },
+        {
+          "name": "2. View All Company Internships (No Filter)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/my-internships",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "my-internships"]
+            }
+          }
+        },
+        {
+          "name": "3. View Internships Filtered by Status (ACTIVE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/my-internships?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "my-internships"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. View Internship Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "{{internshipId}}"]
+            }
+          }
+        },
+        {
+          "name": "5. Update Internship Details",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stipend\": 40000,\n  \"location\": \"Bengaluru / Remote\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "{{internshipId}}"]
+            }
+          }
+        },
+        {
+          "name": "6. Change Internship Status to ACTIVE",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "{{internshipId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "7. Delete Internship (Soft Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/internships/{{internshipId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "internships", "{{internshipId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
