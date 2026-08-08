@@ -1,0 +1,2 @@
+const {z}=require("zod"); const f={college:z.string().min(2),degree:z.string().min(2),branch:z.string().min(2),cgpa:z.coerce.number().min(0).max(10).optional(),passingYear:z.coerce.number().int().min(1950).max(2100)}; const id={body:z.object({}),params:z.object({id:z.string().uuid()}),query:z.object({})};
+module.exports={createEducationSchema:z.object({body:z.object(f),params:z.object({}),query:z.object({})}),updateEducationSchema:z.object({body:z.object(f).partial(),params:z.object({id:z.string().uuid()}),query:z.object({})}),idSchema:z.object(id)};

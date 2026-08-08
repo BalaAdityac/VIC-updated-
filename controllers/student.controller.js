@@ -1,0 +1,8 @@
+const p=require("../config/prisma");
+async function create(req,res){res.status(201).json(await p.studentProfile.create({data:{...req.body,userId:req.user.userId}}))}
+async function get(req,res){const x=await p.studentProfile.findUnique({where:{userId:req.user.userId}});if(!x)return res.status(404).json({message:"Profile not found"});res.json(x)}
+async function update(req,res){const x=await p.studentProfile.findUnique({where:{userId:req.user.userId}});if(!x)return res.status(404).json({message:"Profile not found"});res.json(await p.studentProfile.update({where:{userId:req.user.userId},data:req.body}))}
+async function remove(req,res){await p.studentProfile.deleteMany({where:{userId:req.user.userId}});res.json({message:"Profile deleted"})}
+async function complete(req,res){const [x,e,pr,s]=await Promise.all([p.studentProfile.findUnique({where:{userId:req.user.userId}}),p.education.count({where:{userId:req.user.userId}}),p.project.count({where:{userId:req.user.userId}}),p.userSkill.count({where:{userId:req.user.userId}})]);const checks=[!!x?.fullName,!!x?.phone,!!x?.bio,!!x?.resume,!!x?.location,e>0,pr>0,s>0];res.json({completionPercentage:Math.round(checks.filter(Boolean).length/checks.length*100),checks,counts:{education:e,projects:pr,skills:s}})}
+async function full(req,res){const u=await p.user.findUnique({where:{id:req.user.userId},select:{id:true,email:true,role:true,status:true,profile:true,education:true,projects:true,userSkills:{include:{skill:true}}}});if(!u)return res.status(404).json({message:"User not found"});res.json({...u,skills:u.userSkills.map(x=>x.skill),userSkills:undefined})}
+module.exports={create,get,update,remove,complete,full};
