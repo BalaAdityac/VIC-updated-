@@ -1,0 +1,41 @@
+{
+  "name": "placement-portal-auth",
+  "version": "1.0.0",
+  "description": "Authentication module and reusable backend architecture for the Placement Portal (Register, Login, JWT, RBAC, Global Error Handling, Swagger).",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [
+    "auth",
+    "jwt",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prisma": "^5.19.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
