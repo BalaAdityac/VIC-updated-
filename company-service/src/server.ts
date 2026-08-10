@@ -1,5 +1,5 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient, InternshipStatus, InternshipMode } from '@prisma/client';
+import { PrismaClient, InternshipStatus, InternshipMode, ApplicationStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -14,8 +14,9 @@ const app: FastifyInstance = Fastify({ logger: true });
 // TYPES & EXTENSIONS
 // ==========================================
 export interface AuthUser {
-  companyId: string;
+  id: string; // companyId or studentId
   email: string;
+  role: 'COMPANY' | 'STUDENT';
 }
 
 declare module 'fastify' {
@@ -74,6 +75,20 @@ const InternshipQuerySchema = z.object({
   status: z.enum(['DRAFT', 'ACTIVE', 'CLOSED', 'ARCHIVED']).optional()
 });
 
+// Applications Schemas
+const CreateApplicationSchema = z.object({
+  internshipId: z.string().uuid("Invalid Internship UUID"),
+  studentId: z.string().uuid("Invalid Student UUID"),
+  resumeUrl: z.string().url("Valid resume URL is required"),
+  coverLetter: z.string().max(3000).optional(),
+  portfolioUrl: z.string().url().optional().or(z.literal('')),
+  githubUrl: z.string().url().optional().or(z.literal(''))
+});
+
+const UpdateApplicationStatusSchema = z.object({
+  status: z.enum(['APPLIED', 'SHORTLISTED', 'INTERVIEWING', 'OFFERED', 'REJECTED', 'WITHDRAWN'])
+});
+
 // ==========================================
 // AUTHENTICATION MIDDLEWARE
 // ==========================================
@@ -87,23 +102,14 @@ async function authenticate(request: FastifyRequest, reply: FastifyReply) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
 
-    // Verify company still exists and is not soft deleted
-    const company = await prisma.company.findFirst({
-      where: { id: decoded.companyId, deletedAt: null }
-    });
-
-    if (!company) {
-      return reply.status(401).send({ error: 'Unauthorized', message: 'Company account not found or deactivated' });
-    }
-
-    request.user = { companyId: company.id, email: company.email };
+    request.user = decoded;
   } catch (err) {
     return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid or expired JWT token' });
   }
 }
 
 // ==========================================
-// OWNERSHIP VALIDATION HELPER
+// OWNERSHIP VALIDATION HELPERS
 // ==========================================
 async function checkInternshipOwnership(internshipId: string, companyId: string) {
   const internship = await prisma.internship.findFirst({
@@ -125,12 +131,10 @@ async function checkInternshipOwnership(internshipId: string, companyId: string)
 // API ROUTES
 // ==========================================
 
-// Health Check
-app.get('/health', async () => ({ status: 'UP', timestamp: new Date().toISOString() }));
+app.get('/health', async () => ({ status: 'UP', module: 'Company & Applications Service', timestamp: new Date().toISOString() }));
 
-// --- COMPANY AUTH & PROFILE MODULE ---
+// --- COMPANY AUTH & PROFILE ---
 
-// 1. Company Registration
 app.post('/api/company/register', async (request, reply) => {
   const validation = RegisterCompanySchema.safeParse(request.body);
   if (!validation.success) {
@@ -139,13 +143,11 @@ app.post('/api/company/register', async (request, reply) => {
 
   const { companyName, email, password, website, description, address, gstNumber } = validation.data;
 
-  // Check duplicate email
   const existingCompany = await prisma.company.findUnique({ where: { email } });
   if (existingCompany) {
     return reply.status(400).send({ error: 'Conflict', message: 'Email address is already registered' });
   }
 
-  // Secure Password Hashing
   const passwordHash = await bcrypt.hash(password, 12);
 
   const company = await prisma.company.create({
@@ -171,16 +173,11 @@ app.post('/api/company/register', async (request, reply) => {
     }
   });
 
-  const token = jwt.sign({ companyId: company.id, email: company.email }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ id: company.id, email: company.email, role: 'COMPANY' }, JWT_SECRET, { expiresIn: '7d' });
 
-  return reply.status(201).send({
-    message: 'Company registered successfully',
-    token,
-    company
-  });
+  return reply.status(201).send({ message: 'Company registered successfully', token, company });
 });
 
-// 2. Company Login
 app.post('/api/company/login', async (request, reply) => {
   const validation = LoginCompanySchema.safeParse(request.body);
   if (!validation.success) {
@@ -193,51 +190,24 @@ app.post('/api/company/login', async (request, reply) => {
     where: { email, deletedAt: null }
   });
 
-  if (!company) {
+  if (!company || !(await bcrypt.compare(password, company.passwordHash))) {
     return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid email or password' });
   }
 
-  const isPasswordValid = await bcrypt.compare(password, company.passwordHash);
-  if (!isPasswordValid) {
-    return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid email or password' });
-  }
+  const token = jwt.sign({ id: company.id, email: company.email, role: 'COMPANY' }, JWT_SECRET, { expiresIn: '7d' });
 
-  const token = jwt.sign({ companyId: company.id, email: company.email }, JWT_SECRET, { expiresIn: '7d' });
-
-  return reply.send({
-    message: 'Login successful',
-    token,
-    company: {
-      id: company.id,
-      companyName: company.companyName,
-      email: company.email,
-      status: company.status
-    }
-  });
+  return reply.send({ message: 'Login successful', token, company: { id: company.id, companyName: company.companyName, email: company.email } });
 });
 
-// 3. View Company Profile
 app.get('/api/company/profile', { preHandler: [authenticate] }, async (request, reply) => {
   const company = await prisma.company.findUnique({
-    where: { id: request.user!.companyId },
-    select: {
-      id: true,
-      companyName: true,
-      email: true,
-      website: true,
-      description: true,
-      address: true,
-      gstNumber: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true
-    }
+    where: { id: request.user!.id },
+    select: { id: true, companyName: true, email: true, website: true, description: true, address: true, gstNumber: true, status: true, createdAt: true }
   });
 
   return reply.send({ company });
 });
 
-// 4. Update Company Profile
 app.patch('/api/company/profile', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = UpdateCompanyProfileSchema.safeParse(request.body);
   if (!validation.success) {
@@ -245,46 +215,26 @@ app.patch('/api/company/profile', { preHandler: [authenticate] }, async (request
   }
 
   const updatedCompany = await prisma.company.update({
-    where: { id: request.user!.companyId },
-    data: validation.data,
-    select: {
-      id: true,
-      companyName: true,
-      email: true,
-      website: true,
-      description: true,
-      address: true,
-      gstNumber: true,
-      status: true,
-      updatedAt: true
-    }
+    where: { id: request.user!.id },
+    data: validation.data
   });
 
   return reply.send({ message: 'Profile updated successfully', company: updatedCompany });
 });
 
-// 5. Delete Company Profile (Soft Delete)
 app.delete('/api/company/profile', { preHandler: [authenticate] }, async (request, reply) => {
-  const companyId = request.user!.companyId;
+  const companyId = request.user!.id;
 
-  // Soft delete company and archive active internships
   await prisma.$transaction([
-    prisma.company.update({
-      where: { id: companyId },
-      data: { deletedAt: new Date() }
-    }),
-    prisma.internship.updateMany({
-      where: { companyId, deletedAt: null },
-      data: { status: InternshipStatus.ARCHIVED, deletedAt: new Date() }
-    })
+    prisma.company.update({ where: { id: companyId }, data: { deletedAt: new Date() } }),
+    prisma.internship.updateMany({ where: { companyId, deletedAt: null }, data: { status: InternshipStatus.ARCHIVED, deletedAt: new Date() } })
   ]);
 
-  return reply.send({ message: 'Company account and associated listings deactivated successfully' });
+  return reply.send({ message: 'Company account deactivated successfully' });
 });
 
-// --- INTERNSHIP / JOB MANAGEMENT MODULE ---
+// --- INTERNSHIP MANAGEMENT ---
 
-// 6. Create Internship
 app.post('/api/internships', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = CreateInternshipSchema.safeParse(request.body);
   if (!validation.success) {
@@ -294,13 +244,13 @@ app.post('/api/internships', { preHandler: [authenticate] }, async (request, rep
   const data = validation.data;
   const internship = await prisma.internship.create({
     data: {
-      companyId: request.user!.companyId,
+      companyId: request.user!.id,
       title: data.title,
       description: data.description,
       location: data.location,
       mode: data.mode as InternshipMode,
-      salary: data.salary ? data.salary : null,
-      stipend: data.stipend ? data.stipend : null,
+      salary: data.salary || null,
+      stipend: data.stipend || null,
       durationMonths: data.durationMonths || null,
       skills: data.skills,
       status: data.status as InternshipStatus,
@@ -311,7 +261,6 @@ app.post('/api/internships', { preHandler: [authenticate] }, async (request, rep
   return reply.status(201).send({ message: 'Internship created successfully', internship });
 });
 
-// 7. View All Company Internships (With Status Filter)
 app.get('/api/internships/my-internships', { preHandler: [authenticate] }, async (request, reply) => {
   const queryValidation = InternshipQuerySchema.safeParse(request.query);
   if (!queryValidation.success) {
@@ -319,69 +268,40 @@ app.get('/api/internships/my-internships', { preHandler: [authenticate] }, async
   }
 
   const { status } = queryValidation.data;
-
-  const whereClause: any = {
-    companyId: request.user!.companyId,
-    deletedAt: null
-  };
-
-  if (status) {
-    whereClause.status = status as InternshipStatus;
-  }
+  const whereClause: any = { companyId: request.user!.id, deletedAt: null };
+  if (status) whereClause.status = status as InternshipStatus;
 
   const internships = await prisma.internship.findMany({
     where: whereClause,
+    include: { _count: { select: { applications: true } } },
     orderBy: { createdAt: 'desc' }
   });
 
-  return reply.send({
-    count: internships.length,
-    filter: status || 'ALL',
-    internships
-  });
+  return reply.send({ count: internships.length, internships });
 });
 
-// 8. View Single Internship Details
 app.get('/api/internships/:id', async (request, reply) => {
   const { id } = request.params as { id: string };
 
   const internship = await prisma.internship.findFirst({
     where: { id, deletedAt: null },
-    include: {
-      company: {
-        select: {
-          id: true,
-          companyName: true,
-          website: true,
-          description: true
-        }
-      }
-    }
+    include: { company: { select: { id: true, companyName: true, website: true } } }
   });
 
-  if (!internship) {
-    return reply.status(404).send({ error: 'Not Found', message: 'Internship posting not found' });
-  }
+  if (!internship) return reply.status(404).send({ error: 'Not Found', message: 'Internship posting not found' });
 
   return reply.send({ internship });
 });
 
-// 9. Update Internship (With Ownership Check)
 app.patch('/api/internships/:id', { preHandler: [authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
 
-  const ownership = await checkInternshipOwnership(id, request.user!.companyId);
-  if (ownership.error === 'NOT_FOUND') {
-    return reply.status(404).send({ error: 'Not Found', message: ownership.message });
-  }
-  if (ownership.error === 'FORBIDDEN') {
-    return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
-  }
+  const ownership = await checkInternshipOwnership(id, request.user!.id);
+  if (ownership.error === 'NOT_FOUND') return reply.status(404).send({ error: 'Not Found', message: ownership.message });
+  if (ownership.error === 'FORBIDDEN') return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
 
   const validation = UpdateInternshipSchema.safeParse(request.body);
-  if (!validation.success) {
-    return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
-  }
+  if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const data = validation.data;
   const updatedInternship = await prisma.internship.update({
@@ -394,67 +314,204 @@ app.patch('/api/internships/:id', { preHandler: [authenticate] }, async (request
     }
   });
 
-  return reply.send({ message: 'Internship updated successfully', internship: updatedUpdatedInternship(updatedInternship) });
+  return reply.send({ message: 'Internship updated successfully', internship: updatedInternship });
 });
 
-// Helper function formatting Decimal fields
-function updatedUpdatedInternship(item: any) {
-  return {
-    ...item,
-    salary: item.salary ? Number(item.salary) : null,
-    stipend: item.stipend ? Number(item.stipend) : null
-  };
-}
-
-// 10. Change Internship Status (Draft, Active, Closed, Archived)
 app.patch('/api/internships/:id/status', { preHandler: [authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
 
-  const ownership = await checkInternshipOwnership(id, request.user!.companyId);
-  if (ownership.error === 'NOT_FOUND') {
-    return reply.status(404).send({ error: 'Not Found', message: ownership.message });
-  }
-  if (ownership.error === 'FORBIDDEN') {
-    return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
-  }
+  const ownership = await checkInternshipOwnership(id, request.user!.id);
+  if (ownership.error === 'NOT_FOUND') return reply.status(404).send({ error: 'Not Found', message: ownership.message });
+  if (ownership.error === 'FORBIDDEN') return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
 
   const validation = ChangeInternshipStatusSchema.safeParse(request.body);
-  if (!validation.success) {
-    return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
-  }
+  if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const updatedInternship = await prisma.internship.update({
     where: { id },
     data: { status: validation.data.status as InternshipStatus }
   });
 
-  return reply.send({
-    message: `Internship status changed to ${validation.data.status}`,
-    internship: updatedUpdatedInternship(updatedInternship)
-  });
+  return reply.send({ message: `Status updated to ${validation.data.status}`, internship: updatedInternship });
 });
 
-// 11. Delete Internship (Soft Delete with Ownership Check)
 app.delete('/api/internships/:id', { preHandler: [authenticate] }, async (request, reply) => {
   const { id } = request.params as { id: string };
 
-  const ownership = await checkInternshipOwnership(id, request.user!.companyId);
-  if (ownership.error === 'NOT_FOUND') {
-    return reply.status(404).send({ error: 'Not Found', message: ownership.message });
-  }
-  if (ownership.error === 'FORBIDDEN') {
-    return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
-  }
+  const ownership = await checkInternshipOwnership(id, request.user!.id);
+  if (ownership.error === 'NOT_FOUND') return reply.status(404).send({ error: 'Not Found', message: ownership.message });
+  if (ownership.error === 'FORBIDDEN') return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
 
   await prisma.internship.update({
     where: { id },
-    data: {
-      deletedAt: new Date(),
-      status: InternshipStatus.ARCHIVED
-    }
+    data: { deletedAt: new Date(), status: InternshipStatus.ARCHIVED }
   });
 
   return reply.send({ message: 'Internship posting deleted successfully' });
+});
+
+// ==========================================
+// PHASE 2: APPLICATIONS MODULE
+// ==========================================
+
+// 1. Submit Application
+app.post('/api/applications', async (request, reply) => {
+  const validation = CreateApplicationSchema.safeParse(request.body);
+  if (!validation.success) {
+    return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
+  }
+
+  const { internshipId, studentId, resumeUrl, coverLetter, portfolioUrl, githubUrl } = validation.data;
+
+  // Check if internship exists and is active
+  const internship = await prisma.internship.findFirst({
+    where: { id: internshipId, deletedAt: null }
+  });
+
+  if (!internship) {
+    return reply.status(404).send({ error: 'Not Found', message: 'Internship posting does not exist' });
+  }
+
+  if (internship.status !== InternshipStatus.ACTIVE) {
+    return reply.status(400).send({ error: 'Bad Request', message: 'Applications are closed for this posting' });
+  }
+
+  // Prevent Duplicate Applications
+  const existingApplication = await prisma.application.findUnique({
+    where: {
+      internshipId_studentId: { internshipId, studentId }
+    }
+  });
+
+  if (existingApplication) {
+    return reply.status(400).send({ error: 'Conflict', message: 'You have already applied for this internship' });
+  }
+
+  const application = await prisma.application.create({
+    data: {
+      internshipId,
+      studentId,
+      resumeUrl,
+      coverLetter: coverLetter || null,
+      portfolioUrl: portfolioUrl || null,
+      githubUrl: githubUrl || null
+    }
+  });
+
+  return reply.status(201).send({ message: 'Application submitted successfully', application });
+});
+
+// 2. View Applications for an Internship (Company Only - Ownership Guarded)
+app.get('/api/applications/internship/:internshipId', { preHandler: [authenticate] }, async (request, reply) => {
+  const { internshipId } = request.params as { internshipId: string };
+
+  const ownership = await checkInternshipOwnership(internshipId, request.user!.id);
+  if (ownership.error === 'NOT_FOUND') return reply.status(404).send({ error: 'Not Found', message: ownership.message });
+  if (ownership.error === 'FORBIDDEN') return reply.status(403).send({ error: 'Forbidden', message: ownership.message });
+
+  const applications = await prisma.application.findMany({
+    where: { internshipId, deletedAt: null },
+    orderBy: { appliedAt: 'desc' }
+  });
+
+  return reply.send({ count: applications.length, applications });
+});
+
+// 3. View Applications Submitted by a Student
+app.get('/api/applications/student/:studentId', async (request, reply) => {
+  const { studentId } = request.params as { studentId: string };
+
+  const applications = await prisma.application.findMany({
+    where: { studentId, deletedAt: null },
+    include: {
+      internship: {
+        select: {
+          title: true,
+          location: true,
+          mode: true,
+          company: { select: { companyName: true } }
+        }
+      }
+    },
+    orderBy: { appliedAt: 'desc' }
+  });
+
+  return reply.send({ count: applications.length, applications });
+});
+
+// 4. View Single Application Details
+app.get('/api/applications/:id', async (request, reply) => {
+  const { id } = request.params as { id: string };
+
+  const application = await prisma.application.findFirst({
+    where: { id, deletedAt: null },
+    include: {
+      internship: {
+        select: {
+          title: true,
+          companyId: true,
+          company: { select: { companyName: true } }
+        }
+      }
+    }
+  });
+
+  if (!application) {
+    return reply.status(404).send({ error: 'Not Found', message: 'Application record not found' });
+  }
+
+  return reply.send({ application });
+});
+
+// 5. Update Application Status (Company Only - Shortlist / Reject / Interview / Offer)
+app.patch('/api/applications/:id/status', { preHandler: [authenticate] }, async (request, reply) => {
+  const { id } = request.params as { id: string };
+
+  const application = await prisma.application.findFirst({
+    where: { id, deletedAt: null },
+    include: { internship: true }
+  });
+
+  if (!application) {
+    return reply.status(404).send({ error: 'Not Found', message: 'Application record not found' });
+  }
+
+  // Verify Company owns the internship that received this application
+  if (application.internship.companyId !== request.user!.id) {
+    return reply.status(403).send({ error: 'Forbidden', message: 'You do not have permission to manage this application' });
+  }
+
+  const validation = UpdateApplicationStatusSchema.safeParse(request.body);
+  if (!validation.success) {
+    return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
+  }
+
+  const updatedApplication = await prisma.application.update({
+    where: { id },
+    data: { status: validation.data.status as ApplicationStatus }
+  });
+
+  return reply.send({ message: `Application status updated to ${validation.data.status}`, application: updatedApplication });
+});
+
+// 6. Withdraw Application (Student)
+app.patch('/api/applications/:id/withdraw', async (request, reply) => {
+  const { id } = request.params as { id: string };
+
+  const application = await prisma.application.findFirst({
+    where: { id, deletedAt: null }
+  });
+
+  if (!application) {
+    return reply.status(404).send({ error: 'Not Found', message: 'Application record not found' });
+  }
+
+  const updatedApplication = await prisma.application.update({
+    where: { id },
+    data: { status: ApplicationStatus.WITHDRAWN }
+  });
+
+  return reply.send({ message: 'Application withdrawn successfully', application: updatedApplication });
 });
 
 // Global Error Handler
@@ -467,7 +524,7 @@ app.setErrorHandler((error, request, reply) => {
 const start = async () => {
   try {
     await app.listen({ port: PORT, host: '0.0.0.0' });
-    console.log(`🚀 Company Service API running at http://localhost:${PORT}`);
+    console.log(`🚀 Company & Applications Service API running at http://localhost:${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

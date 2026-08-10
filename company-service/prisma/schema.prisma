@@ -1,4 +1,4 @@
-// Prisma Schema for Company Service (Isolated ATS Microservice)
+// Prisma Schema for Company & Applications ATS Service
 
 generator client {
   provider = "prisma-client-js"
@@ -28,21 +28,30 @@ enum InternshipStatus {
   ARCHIVED
 }
 
-model Company {
-  id               String        @id @default(uuid()) @db.Uuid
-  companyName      String        @map("company_name") @db.VarChar(100)
-  email            String        @unique @db.VarChar(255)
-  passwordHash     String        @map("password_hash") @db.Text
-  website          String?       @db.Text
-  description      String?       @db.Text
-  address          String?       @db.Text
-  gstNumber        String?       @map("gst_number") @db.VarChar(50)
-  status           CompanyStatus @default(PENDING)
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEWING
+  OFFERED
+  REJECTED
+  WITHDRAWN
+}
 
-  internships      Internship[]
+model Company {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyName  String        @map("company_name") @db.VarChar(100)
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @map("password_hash") @db.Text
+  website      String?       @db.Text
+  description  String?       @db.Text
+  address      String?       @db.Text
+  gstNumber    String?       @map("gst_number") @db.VarChar(50)
+  status       CompanyStatus @default(PENDING)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz
+
+  internships  Internship[]
 
   @@index([email])
   @@index([status])
@@ -68,9 +77,32 @@ model Internship {
   deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz
 
   company        Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  applications   Application[]
 
   @@index([companyId])
   @@index([status])
   @@index([companyId, status])
   @@map("internships")
+}
+
+model Application {
+  id           String            @id @default(uuid()) @db.Uuid
+  internshipId String            @map("internship_id") @db.Uuid
+  studentId    String            @map("student_id") @db.Uuid
+  resumeUrl    String            @map("resume_url") @db.Text
+  coverLetter  String?           @map("cover_letter") @db.Text
+  portfolioUrl String?           @map("portfolio_url") @db.Text
+  githubUrl    String?           @map("github_url") @db.Text
+  status       ApplicationStatus @default(APPLIED)
+  appliedAt    DateTime          @default(now()) @map("applied_at") @db.Timestamptz
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz
+
+  internship   Internship        @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+
+  @@unique([internshipId, studentId])
+  @@index([internshipId])
+  @@index([studentId])
+  @@index([status])
+  @@map("applications")
 }
