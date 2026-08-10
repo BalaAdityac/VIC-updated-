@@ -517,9 +517,11 @@ app.patch('/api/applications/:id/withdraw', async (request, reply) => {
 // Global Error Handler
 app.setErrorHandler((error, request, reply) => {
   app.log.error(error);
-  reply.status(500).send({ error: 'Internal Server Error', message: error.message || 'An unexpected error occurred' });
+  reply.status(500).send({ 
+    error: 'Internal Server Error', 
+    message: (error as Error).message || 'An unexpected error occurred' 
+  });
 });
-
 // Start Server
 const start = async () => {
   try {
