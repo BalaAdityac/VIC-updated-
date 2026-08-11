@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VIC Backend - Intern 2
 
-## Getting Started
+## Run
+1. Copy `.env.example` to `.env`.
+2. Put the real PostgreSQL password in `DATABASE_URL`.
+3. Ensure database `vic_db` exists.
+4. `npm install`
+5. `npx prisma generate`
+6. `npx prisma migrate dev --name student_profile_module`
+7. `npm run dev`
 
-First, run the development server:
+Server: http://localhost:5000
+Health: GET /api/health
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## APIs
+Auth: POST /api/auth/register, POST /api/auth/login
+Student: POST/GET/PUT/DELETE /api/students/profile
+Complete profile: GET /api/students/profile/complete
+Completion: GET /api/students/profile/completion
+Education: POST/GET/PUT/DELETE /api/education
+Projects: POST/GET/PUT/DELETE /api/projects
+Skills: GET/POST/DELETE /api/skills
+User skills: GET/POST/DELETE /api/skills/mine
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Use `Authorization: Bearer <token>` after login.

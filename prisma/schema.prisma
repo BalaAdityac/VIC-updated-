@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  email      String          @unique
+  password   String
+  role       Role
+  createdAt  DateTime        @default(now())
+  status     AccountStatus   @default(ACTIVE)
+  updatedAt  DateTime        @updatedAt
+  id         String          @id @default(uuid()) @db.Uuid
+  education  Education[]
+  projects   Project[]
+  profile    StudentProfile?
+  userSkills UserSkill[]
+}
+
+model StudentProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  fullName  String
+  phone     String?
+  bio       String?
+  resume    String?
+  location  String?
+  userId    String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Education {
+  id          String   @id @default(uuid()) @db.Uuid
+  college     String
+  degree      String
+  branch      String
+  cgpa        Float?
+  passingYear Int
+  userId      String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  github      String?
+  liveLink    String?
+  technology  String
+  userId      String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String      @unique
+  userSkills UserSkill[]
+}
+
+model UserSkill {
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @db.Uuid
+  skillId String @db.Uuid
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+}
+
+enum Role {
+  STUDENT
+  COMPANY
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
