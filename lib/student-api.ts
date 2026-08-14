@@ -75,7 +75,15 @@ export interface ApplicationRecord {
   offers?: OfferDetails[];
 }
 
-// 1. Get all active internships with search/filters
+export interface StudentDashboardSummary {
+  totalApplications: number;
+  activeInterviewsCount: number;
+  offersCount: number;
+  recentApplications: ApplicationRecord[];
+  upcomingInterviews: Array<InterviewSchedule & { internshipTitle: string; companyName: string }>;
+}
+
+// 1. Fetch Active Internships with Filter
 export async function getActiveInternships(filters?: { search?: string; mode?: string; location?: string }): Promise<Internship[]> {
   const params = new URLSearchParams();
   if (filters?.search) params.append('search', filters.search);
@@ -85,24 +93,24 @@ export async function getActiveInternships(filters?: { search?: string; mode?: s
   const res = await fetch(`${API_BASE_URL}/api/internships?${params.toString()}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Failed to fetch active internships');
+    throw new Error(err.message || 'Failed to retrieve active internships');
   }
   const data = await res.json();
   return data.internships || [];
 }
 
-// 2. Get specific internship details
+// 2. Fetch Single Internship Details
 export async function getInternshipDetails(id: string): Promise<Internship> {
   const res = await fetch(`${API_BASE_URL}/api/internships/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Failed to retrieve internship details');
+    throw new Error(err.message || 'Internship posting not found');
   }
   const data = await res.json();
   return data.internship;
 }
 
-// 3. Apply to internship (Student ID derived securely on backend from JWT)
+// 3. Apply to Internship (Token-derived student ID + duplicate checks)
 export async function applyToInternship(payload: {
   internshipId: string;
   resumeUrl: string;
@@ -118,12 +126,12 @@ export async function applyToInternship(payload: {
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Application submission failed');
+    throw new Error(data.message || 'Failed to submit application');
   }
   return data;
 }
 
-// 4. Get current student's applications with interview and offer relations
+// 4. Retrieve All Student Applications
 export async function getMyApplications(): Promise<ApplicationRecord[]> {
   const res = await fetch(`${API_BASE_URL}/api/applications/my-applications`, {
     headers: getAuthHeaders()
@@ -131,7 +139,43 @@ export async function getMyApplications(): Promise<ApplicationRecord[]> {
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.message || 'Failed to fetch your applications');
+    throw new Error(data.message || 'Failed to fetch student application history');
   }
   return data.applications || [];
+}
+
+// 5. Aggregate Student Dashboard Analytics & Upcoming Interviews
+export async function getStudentDashboardSummary(): Promise<StudentDashboardSummary> {
+  const apps = await getMyApplications();
+  
+  let upcomingInterviews: Array<InterviewSchedule & { internshipTitle: string; companyName: string }> = [];
+  let offersCount = 0;
+
+  apps.forEach((app) => {
+    if (app.offers && app.offers.length > 0) {
+      offersCount += app.offers.length;
+    }
+    if (app.interviews && app.interviews.length > 0) {
+      app.interviews
+        .filter((intv) => intv.status === 'SCHEDULED')
+        .forEach((intv) => {
+          upcomingInterviews.push({
+            ...intv,
+            internshipTitle: app.internship.title,
+            companyName: app.internship.company.companyName
+          });
+        });
+    }
+  });
+
+  // Sort upcoming interviews chronologically
+  upcomingInterviews.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+
+  return {
+    totalApplications: apps.length,
+    activeInterviewsCount: upcomingInterviews.length,
+    offersCount,
+    recentApplications: apps.slice(0, 5),
+    upcomingInterviews
+  };
 }

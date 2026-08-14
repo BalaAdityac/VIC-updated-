@@ -10,7 +10,7 @@ async function testFullWorkflow() {
   try {
     // 1. Setup: Register Company & Post Active Job
     console.log('1️⃣ Setup: Registering Company & Creating Active Job Posting...');
-    const companyEmail = `company.${Date.now()}@nexus.com`;
+    const companyEmail = `recruiter.${Date.now()}@nexusiot.com`;
     const regRes = await (await fetch(`${BASE_URL}/api/company/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -41,13 +41,13 @@ async function testFullWorkflow() {
     console.log(`   ✅ Found ${searchRes.count} matching internship(s).`);
 
     const detailRes = await (await fetch(`${BASE_URL}/api/internships/${internshipId}`)).json();
-    console.log(`   ✅ Fetched details for: "${detailRes.internship.title}" at ${detailRes.internship.company?.companyName}`);
+    console.log(`   ✅ Fetched specs for: "${detailRes.internship.title}" at ${detailRes.internship.company?.companyName}`);
 
-    // 3. Student Apply (Student ID derived strictly from JWT)
-    console.log('\n3️⃣ Student Apply: Submitting application with JWT...');
+    // 3. Student Apply (Identity derived strictly from JWT)
+    console.log('\n3️⃣ Student Apply: Submitting application with Student JWT...');
     const studentId = 'e205bc99-9c0b-4ef8-bb6d-6bb9bd380e22';
     const studentToken = jwt.sign(
-      { id: studentId, email: 'student.aditya@example.com', role: 'STUDENT' },
+      { id: studentId, email: 'student.baladitya@example.com', role: 'STUDENT' },
       JWT_SECRET,
       { expiresIn: '2h' }
     );
@@ -57,7 +57,7 @@ async function testFullWorkflow() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         internshipId,
-        resumeUrl: 'https://example.com/resumes/aditya_cv.pdf',
+        resumeUrl: 'https://example.com/resumes/baladitya_cv.pdf',
         coverLetter: 'Extensive experience in embedded C and TypeScript full-stack platforms.',
         githubUrl: 'https://github.com/aditya'
       })
@@ -72,13 +72,13 @@ async function testFullWorkflow() {
     const applicationId = applyData.application.id;
 
     // 4. Duplicate Application Prevention Check
-    console.log('\n4️⃣ Duplicate Check: Attempting identical application...');
+    console.log('\n4️⃣ Duplicate Check: Attempting identical re-application...');
     const dupRes = await fetch(`${BASE_URL}/api/applications/student/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
       body: JSON.stringify({
         internshipId,
-        resumeUrl: 'https://example.com/resumes/aditya_cv.pdf'
+        resumeUrl: 'https://example.com/resumes/baladitya_cv.pdf'
       })
     });
     const dupData = await dupRes.json();
@@ -88,15 +88,15 @@ async function testFullWorkflow() {
       console.error(`   ❌ Failed duplicate prevention: Expected 409, got ${dupRes.status}`);
     }
 
-    // 5. Company Schedules Interview
-    console.log('\n5️⃣ Company Action: Scheduling Technical Interview Round...');
+    // 5. Recruiter Schedules Interview
+    console.log('\n5️⃣ Recruiter Action: Scheduling Technical Interview Round...');
     const interviewRes = await (await fetch(`${BASE_URL}/api/interviews`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${companyToken}` },
       body: JSON.stringify({
         applicationId,
         roundNumber: 1,
-        roundName: 'Technical & Architecture Round',
+        roundName: 'Technical Architecture & Firmware Round',
         meetingUrl: 'https://meet.google.com/xyz-qwer-abc',
         scheduledAt: new Date(Date.now() + 86400000).toISOString()
       })
