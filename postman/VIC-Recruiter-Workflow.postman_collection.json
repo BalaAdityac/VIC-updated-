@@ -1,0 +1,21 @@
+{
+  "info":{"name":"VIC Company Recruiter Workflow","schema":"https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "variable":[
+    {"key":"baseUrl","value":"http://localhost:5000/api"},
+    {"key":"companyToken","value":""},{"key":"studentToken","value":""},
+    {"key":"internshipId","value":""},{"key":"applicationId","value":""},{"key":"interviewId","value":""}
+  ],
+  "item":[
+    {"name":"Register Company","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"email":"company@example.com","password":"Password123","role":"COMPANY","companyName":"VIC Tech"}"},"url":"{{baseUrl}}/auth/register"}},
+    {"name":"Register Student","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"email":"student@example.com","password":"Password123","role":"STUDENT","fullName":"Test Student"}"},"url":"{{baseUrl}}/auth/register"}},
+    {"name":"Create Internship","request":{"method":"POST","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"},{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"title":"Backend Intern","description":"Node.js and Prisma internship","location":"Bengaluru","workMode":"HYBRID","stipend":"15000","skills":"Node.js,Prisma,PostgreSQL"}"},"url":"{{baseUrl}}/company/internships"}},
+    {"name":"Student Apply","request":{"method":"POST","header":[{"key":"Authorization","value":"Bearer {{studentToken}}"}],"url":"{{baseUrl}}/student/internships/{{internshipId}}/apply"}},
+    {"name":"Company Applications","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"}],"url":"{{baseUrl}}/company/applications"}},
+    {"name":"Candidate Profile","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"}],"url":"{{baseUrl}}/company/applications/{{applicationId}}/candidate"}},
+    {"name":"Shortlist","request":{"method":"PATCH","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"},{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"status":"SHORTLISTED"}"},"url":"{{baseUrl}}/company/applications/{{applicationId}}/status"}},
+    {"name":"Schedule Interview","request":{"method":"POST","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"},{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"scheduledAt":"2026-08-20T10:00:00.000Z","durationMins":45,"meetingLink":"https://meet.google.com/example","interviewType":"ONLINE","round":"TECHNICAL","interviewer":"VIC Engineering Team"}"},"url":"{{baseUrl}}/company/applications/{{applicationId}}/interviews"}},
+    {"name":"Student Interview Details","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{studentToken}}"}],"url":"{{baseUrl}}/student/interviews"}},
+    {"name":"Evaluation","request":{"method":"PUT","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"},{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{"score":88,"remarks":"Strong backend fundamentals","recommendation":"SELECTED"}"},"url":"{{baseUrl}}/company/interviews/{{interviewId}}/evaluation"}},
+    {"name":"Company Evaluation","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{companyToken}}"}],"url":"{{baseUrl}}/company/interviews/{{interviewId}}/evaluation"}}
+  ]
+}

@@ -1,25 +1,22 @@
-# VIC Backend - Intern 2
+# VIC Company Recruiter Backend
 
-## Run
-1. Copy `.env.example` to `.env`.
-2. Put the real PostgreSQL password in `DATABASE_URL`.
-3. Ensure database `vic_db` exists.
-4. `npm install`
-5. `npx prisma generate`
-6. `npx prisma migrate dev --name student_profile_module`
-7. `npm run dev`
+Workflow:
+Company -> Internship -> Application -> Candidate Profile -> Shortlist/Reject -> Interview -> Evaluation -> Selected/Rejected
 
-Server: http://localhost:5000
-Health: GET /api/health
+Stack: Express, PostgreSQL, Prisma 6.19.3, JWT, Zod.
 
-## APIs
-Auth: POST /api/auth/register, POST /api/auth/login
-Student: POST/GET/PUT/DELETE /api/students/profile
-Complete profile: GET /api/students/profile/complete
-Completion: GET /api/students/profile/completion
-Education: POST/GET/PUT/DELETE /api/education
-Projects: POST/GET/PUT/DELETE /api/projects
-Skills: GET/POST/DELETE /api/skills
-User skills: GET/POST/DELETE /api/skills/mine
+## Setup
 
-Use `Authorization: Bearer <token>` after login.
+```powershell
+npm install
+Copy-Item .env.example .env
+notepad .env
+npx prisma validate
+npx prisma generate
+npx prisma migrate dev --name recruiter_workflow
+npm run dev
+```
+
+Health: GET http://localhost:5000/health
+
+Company APIs are scoped through Internship -> Company ownership. Students can retrieve their interview details but cannot retrieve internal evaluations.

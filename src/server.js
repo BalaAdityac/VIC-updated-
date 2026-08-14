@@ -1,1 +1,18 @@
-require("dotenv").config();const express=require("express"),cors=require("cors"),p=require("../config/prisma");const app=express();app.use(cors());app.use(express.json());app.get("/",(q,s)=>s.json({message:"VIC Backend API is running"}));app.get("/api/health",async(q,s)=>{await p.$queryRaw`SELECT 1`;s.json({status:"ok",database:"connected"})});app.use("/api/auth",require("../routes/auth.routes"));app.use("/api/students",require("../routes/student.routes"));app.use("/api/education",require("../routes/education.routes"));app.use("/api/projects",require("../routes/project.routes"));app.use("/api/skills",require("../routes/skill.routes"));app.use((e,q,s,n)=>{console.error(e);s.status(500).json({message:"Internal server error",error:e.message})});p.$connect().then(()=>app.listen(process.env.PORT||5000,()=>console.log("VIC backend running on http://localhost:"+(process.env.PORT||5000)))).catch(e=>{console.error("Database connection failed:",e.message);process.exit(1)});
+const express=require("express");
+const cors=require("cors");
+const routes=require("./routes");
+const {PORT}=require("./config/env");
+const errorHandler=require("./middlewares/error");
+const app=express();
+app.use(cors());
+app.use(express.json());
+app.get("/health",(req,res)=>res.json({success:true,message:"VIC backend is running"}));
+app.use("/api",routes);
+app.use(errorHandler);
+app.listen(PORT,()=>console.log(`VIC backend running on http://localhost:${PORT}`));
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "VIC Recruiter Backend API is running"
+  });
+});

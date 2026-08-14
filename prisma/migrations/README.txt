@@ -1,1 +1,1 @@
-Run `npx prisma migrate dev --name student_profile_module` to create the local migration.
+Migration is intentionally generated on the target database. Run: npx prisma migrate dev --name recruiter_workflow

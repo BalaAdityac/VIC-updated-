@@ -1,0 +1,40 @@
+VIC COMPANY RECRUITER BACKEND
+
+cd C:\path\to\VIC_company_recruiter_backend
+npm install
+Copy-Item .env.example .env
+notepad .env
+
+Set:
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/vic_db?schema=public"
+JWT_SECRET="your-long-secret"
+PORT=5000
+
+Then:
+npx prisma validate
+npx prisma generate
+
+IMPORTANT: Back up your existing vic_db before applying this schema if it contains data you need.
+npx prisma migrate dev --name recruiter_workflow
+npm run dev
+
+Open:
+http://localhost:5000/health
+
+Postman:
+Import postman/VIC-Recruiter-Workflow.postman_collection.json
+
+TO ADD TO ADITYA'S SUKRUTHI BRANCH
+
+git switch sukruthi
+git pull origin sukruthi
+
+Copy this folder into the repository as:
+company-recruiter-backend/
+
+Then:
+git add company-recruiter-backend
+git status
+git commit -m "Complete company applications interviews and evaluation workflow"
+git push origin sukruthi
+git status
