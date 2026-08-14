@@ -1,0 +1,189 @@
+// Complete ATS Platform Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InternshipMode {
+  REMOTE
+  HYBRID
+  ON_SITE
+}
+
+enum InternshipStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEWING
+  OFFERED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Company {
+  id           String        @id @default(uuid()) @db.Uuid
+  companyName  String        @map("company_name") @db.VarChar(100)
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @map("password_hash") @db.Text
+  website      String?       @db.Text
+  description  String?       @db.Text
+  address      String?       @db.Text
+  gstNumber    String?       @map("gst_number") @db.VarChar(50)
+  status       CompanyStatus @default(PENDING)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz
+
+  internships  Internship[]
+
+  @@index([email])
+  @@index([status])
+  @@map("companies")
+}
+
+model Internship {
+  id             String           @id @default(uuid()) @db.Uuid
+  companyId      String           @map("company_id") @db.Uuid
+  title          String           @db.VarChar(150)
+  description    String           @db.Text
+  location       String           @db.VarChar(100)
+  mode           InternshipMode   @default(REMOTE)
+  salary         Decimal?         @db.Decimal(10, 2)
+  stipend        Decimal?         @db.Decimal(10, 2)
+  durationMonths Int?             @map("duration_months")
+  skills         String[]         @db.Text
+  status         InternshipStatus @default(DRAFT)
+  deadline       DateTime?        @db.Timestamptz
+  publishedAt    DateTime         @default(now()) @map("published_at") @db.Timestamptz
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?        @map("deleted_at") @db.Timestamptz
+
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  applications   Application[]
+
+  @@index([companyId])
+  @@index([status])
+  @@map("internships")
+}
+
+model Application {
+  id           String            @id @default(uuid()) @db.Uuid
+  internshipId String            @map("internship_id") @db.Uuid
+  studentId    String            @map("student_id") @db.Uuid
+  resumeUrl    String            @map("resume_url") @db.Text
+  coverLetter  String?           @map("cover_letter") @db.Text
+  portfolioUrl String?           @map("portfolio_url") @db.Text
+  githubUrl    String?           @map("github_url") @db.Text
+  status       ApplicationStatus @default(APPLIED)
+  appliedAt    DateTime          @default(now()) @map("applied_at") @db.Timestamptz
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?         @map("deleted_at") @db.Timestamptz
+
+  internship   Internship        @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+  interviews   Interview[]
+  offers       Offer[]
+
+  @@unique([internshipId, studentId])
+  @@index([internshipId])
+  @@index([studentId])
+  @@map("applications")
+}
+
+model Interview {
+  id            String          @id @default(uuid()) @db.Uuid
+  applicationId String          @map("application_id") @db.Uuid
+  roundNumber   Int             @map("round_number")
+  roundName     String          @map("round_name") @db.VarChar(100)
+  meetingUrl    String?         @map("meeting_url") @db.Text
+  scheduledAt   DateTime        @map("scheduled_at") @db.Timestamptz
+  status        InterviewStatus @default(SCHEDULED)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluation    Evaluation?
+
+  @@index([applicationId])
+  @@map("interviews")
+}
+
+model Evaluation {
+  id          String    @id @default(uuid()) @db.Uuid
+  interviewId String    @unique @map("interview_id") @db.Uuid
+  evaluatorId String    @map("evaluator_id") @db.Uuid
+  score       Decimal   @db.Decimal(3, 1)
+  passed      Boolean   @default(true)
+  feedback    String    @db.Text
+  evaluatedAt DateTime  @default(now()) @map("evaluated_at") @db.Timestamptz
+
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@map("evaluations")
+}
+
+model Offer {
+  id             String      @id @default(uuid()) @db.Uuid
+  applicationId  String      @map("application_id") @db.Uuid
+  stipendAmount  Decimal     @map("stipend_amount") @db.Decimal(10, 2)
+  joiningDate    DateTime    @map("joining_date") @db.Timestamptz
+  offerLetterUrl String      @map("offer_letter_url") @db.Text
+  status         OfferStatus @default(PENDING)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  onboarding     Onboarding?
+
+  @@index([applicationId])
+  @@map("offers")
+}
+
+model Onboarding {
+  id        String           @id @default(uuid()) @db.Uuid
+  offerId   String           @unique @map("offer_id") @db.Uuid
+  status    OnboardingStatus @default(NOT_STARTED)
+  startDate DateTime         @map("start_date") @db.Timestamptz
+  notes     String?          @db.Text
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  offer     Offer            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@map("onboardings")
+}

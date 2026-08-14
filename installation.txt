@@ -1,0 +1,7 @@
+npm init -y
+
+# Install production dependencies
+npm install fastify @prisma/client bcryptjs jsonwebtoken zod dotenv
+
+# Install development dependencies
+npm install -D typescript @types/node @types/bcryptjs @types/jsonwebtoken prisma tsx
