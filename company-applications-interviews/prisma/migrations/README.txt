@@ -1,0 +1,1 @@
+Run `npx prisma migrate dev --name student_profile_module` to create the local migration.

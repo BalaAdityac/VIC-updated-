@@ -1,0 +1,238 @@
+{
+  "info": {
+    "name": "VIC Company Recruiter Applications & Interviews",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "companyToken",
+      "value": ""
+    },
+    {
+      "key": "studentToken",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "interviewId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Company Profile",
+      "item": [
+        {
+          "name": "Get company profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/company/profile"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company Applications",
+      "item": [
+        {
+          "name": "List applications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/applications/company?page=1&limit=10"
+          }
+        },
+        {
+          "name": "View candidate profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/applications/company/{{applicationId}}"
+          }
+        },
+        {
+          "name": "Move to Under Review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"UNDER_REVIEW\"}"
+            },
+            "url": "{{baseUrl}}/api/applications/company/{{applicationId}}/status"
+          }
+        },
+        {
+          "name": "Shortlist",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"SHORTLISTED\"}"
+            },
+            "url": "{{baseUrl}}/api/applications/company/{{applicationId}}/status"
+          }
+        },
+        {
+          "name": "Reject",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"REJECTED\"}"
+            },
+            "url": "{{baseUrl}}/api/applications/company/{{applicationId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Interviews",
+      "item": [
+        {
+          "name": "Schedule interview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"applicationId\":\"{{applicationId}}\",\"dateTime\":\"2026-08-20T10:30:00.000Z\",\"meetingLink\":\"https://meet.example.com/vic-123\",\"type\":\"ONLINE\",\"round\":\"TECHNICAL\",\"notes\":\"Bring project discussion points\"}"
+            },
+            "url": "{{baseUrl}}/api/interviews"
+          }
+        },
+        {
+          "name": "Company interview list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/interviews/company"
+          }
+        },
+        {
+          "name": "Company interview details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/interviews/company/{{interviewId}}"
+          }
+        },
+        {
+          "name": "Student interview list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/interviews/student"
+          }
+        },
+        {
+          "name": "Student interview details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/interviews/student/{{interviewId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Applications",
+      "item": [
+        {
+          "name": "Student application list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/applications/student"
+          }
+        }
+      ]
+    }
+  ]
+}

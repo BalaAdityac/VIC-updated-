@@ -1,0 +1,932 @@
+:root {
+  --ink: #11141a;
+  --muted: #747b88;
+  --line: #e8eaf0;
+  --accent: #6657ee;
+  --soft: #f4f3ff;
+  --green: #229565;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f6f7f9;
+  color: var(--ink);
+}
+
+button,
+a {
+  font: inherit;
+  cursor: pointer;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* =========================
+   MAIN LAYOUT
+========================= */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+.sidebar {
+  position: fixed;
+  width: 245px;
+  inset: 0 auto 0 0;
+  background: #101217;
+  color: white;
+  padding: 24px 14px;
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+}
+
+/* VIC BRAND */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 30px;
+}
+
+/* LOGO IMAGE */
+
+.brand img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 7px;
+  flex: none;
+}
+
+.brand span {
+  min-width: 0;
+}
+
+.brand strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.brand small {
+  display: block;
+  color: #8d929e;
+  font-size: 9px;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.brand button {
+  display: none;
+  background: none;
+  color: white;
+  margin-left: auto;
+  border: 0;
+}
+
+/* =========================
+   SIDEBAR NAVIGATION
+========================= */
+
+.sidebar nav {
+  display: grid;
+  gap: 5px;
+}
+
+.sidebar a,
+.sidebar .bottom button {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  color: #969ba6;
+  padding: 11px;
+  border-radius: 9px;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-size: 12px;
+}
+
+.sidebar a.active,
+.sidebar a:hover {
+  background: #25222f;
+  color: #fff;
+}
+
+.bottom {
+  margin-top: auto;
+  border-top: 1px solid #272a30;
+  padding-top: 12px;
+}
+
+/* =========================
+   MAIN AREA
+========================= */
+
+.main,
+main {
+  margin-left: 245px;
+  width: calc(100% - 245px);
+}
+
+/* =========================
+   HEADER
+========================= */
+
+header {
+  height: 68px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 35px;
+}
+
+.crumb {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user button,
+.menub {
+  background: none;
+  border: 0;
+}
+
+.user > i,
+.profile > i {
+  background: linear-gradient(135deg, #7566ff, #5041db);
+  color: #fff;
+  font-style: normal;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.user > i {
+  width: 31px;
+  height: 31px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.user small {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.user strong {
+  font-size: 11px;
+}
+
+.menub {
+  display: none;
+}
+
+/* =========================
+   CONTENT
+========================= */
+
+.content {
+  max-width: 1300px;
+  margin: auto;
+  padding: 32px 38px;
+}
+
+/* =========================
+   WELCOME
+========================= */
+
+.welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 23px;
+}
+
+.welcome label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 1.4px;
+  display: flex;
+  gap: 6px;
+}
+
+.welcome h1 {
+  font-size: 28px;
+  margin: 8px 0 5px;
+  letter-spacing: -1px;
+}
+
+.welcome p,
+.bio,
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.edit {
+  background: var(--ink);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 11px;
+}
+
+/* =========================
+   STATS
+========================= */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 13px;
+  margin-bottom: 17px;
+}
+
+.stat,
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+
+.stat {
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.stat > svg {
+  color: var(--accent);
+  background: var(--soft);
+  padding: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+}
+
+.stat span {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.stat strong {
+  display: block;
+  color: var(--ink);
+  font-size: 19px;
+  margin-top: 3px;
+}
+
+/* =========================
+   TWO COLUMN
+========================= */
+
+.twocol {
+  display: grid;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 17px;
+}
+
+/* =========================
+   CARD
+========================= */
+
+.card {
+  padding: 19px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 17px;
+}
+
+.head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.head button {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================
+   PROFILE
+========================= */
+
+.profile {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.profile > i {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+
+.profile h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.profile p {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.profile small {
+  color: var(--muted);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.bio {
+  line-height: 1.6;
+}
+
+.card footer {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 9px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.card footer b {
+  color: var(--green);
+  display: flex;
+  gap: 4px;
+}
+
+/* =========================
+   PROFILE COMPLETION
+========================= */
+
+.ring {
+  width: 102px;
+  height: 102px;
+  margin: auto;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--accent) var(--p),
+    #e9eaf0 0
+  );
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.ring b {
+  font-size: 21px;
+}
+
+.ring small {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.muted {
+  text-align: center;
+  font-size: 10px;
+}
+
+.check {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.check svg {
+  width: 14px;
+  color: var(--green);
+}
+
+.check b {
+  margin-left: auto;
+  color: var(--green);
+  font-size: 9px;
+}
+
+/* =========================
+   EDUCATION
+========================= */
+
+.lower {
+  margin-top: 17px;
+}
+
+.item {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  display: flex;
+  gap: 10px;
+}
+
+.item > svg,
+.project > svg {
+  width: 32px;
+  height: 32px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--accent);
+  flex: none;
+}
+
+.item b,
+.item small {
+  display: block;
+}
+
+.item b {
+  font-size: 10px;
+}
+
+.item small {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* =========================
+   SKILLS
+========================= */
+
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.skills b {
+  background: var(--soft);
+  color: #5548d8;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 9px;
+}
+
+.skills button,
+.empty button {
+  border: 1px dashed #ccc;
+  background: white;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 9px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =========================
+   PROJECTS
+========================= */
+
+.project {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  display: flex;
+  gap: 11px;
+  align-items: center;
+}
+
+.project > div {
+  flex: 1;
+}
+
+.project > b,
+.project div > b {
+  font-size: 11px;
+}
+
+.project p {
+  font-size: 9px;
+  color: var(--muted);
+  margin: 4px 0;
+}
+
+.project small {
+  font-size: 8px;
+  background: #f4f5f7;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.project span {
+  display: flex;
+  gap: 6px;
+}
+
+.project span a {
+  font-size: 9px;
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  border-radius: 5px;
+}
+
+/* =========================
+   EMPTY STATE
+========================= */
+
+.empty {
+  min-height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.copyright {
+  text-align: center;
+  color: #a0a5ad;
+  font-size: 9px;
+  padding: 25px;
+}
+
+/* =========================
+   LOADING
+========================= */
+
+.center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  background: #f6f7f9;
+  color: var(--muted);
+  padding: 20px;
+  text-align: center;
+}
+
+.loader {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ddd;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================
+   ERROR
+========================= */
+
+.error {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 28px;
+  border-radius: 15px;
+  max-width: 500px;
+}
+
+.error > b {
+  background: #111;
+  color: white;
+  padding: 12px;
+  border-radius: 9px;
+}
+
+.error h1 {
+  font-size: 20px;
+}
+
+.error p {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.error code {
+  display: block;
+  background: #f4f5f7;
+  padding: 10px;
+  font-size: 9px;
+  word-break: break-all;
+}
+
+.error a {
+  display: block;
+  color: var(--accent);
+  margin-top: 15px;
+  font-size: 11px;
+}
+
+/* =========================
+   LOGIN PAGE
+========================= */
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f6f7f9;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: min(430px, 100%);
+  background: #fff;
+  border: 1px solid #e5e7ec;
+  border-radius: 20px;
+  padding: 34px;
+  box-shadow: 0 18px 55px rgba(20, 24, 35, 0.08);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #555b68;
+}
+
+.login-brand b {
+  background: #111;
+  color: #fff;
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+}
+
+.login-title {
+  margin: 27px 0 22px;
+}
+
+.login-title h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.8px;
+  color: #11141a;
+}
+
+.login-title p {
+  margin: 7px 0 0;
+  color: #7a818e;
+  font-size: 12px;
+}
+
+.login-card form {
+  display: grid;
+  gap: 8px;
+}
+
+.login-card label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #363b45;
+  margin-top: 6px;
+}
+
+.input-wrap {
+  height: 45px;
+  border: 1px solid #e2e4e9;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  gap: 8px;
+  background: #fff;
+}
+
+.input-wrap:focus-within {
+  border-color: #6657ee;
+  box-shadow: 0 0 0 3px rgba(102, 87, 238, 0.08);
+}
+
+.input-wrap svg {
+  width: 16px;
+  color: #8a909b;
+  flex: none;
+}
+
+.input-wrap input {
+  border: 0;
+  outline: 0;
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.input-wrap button {
+  border: 0;
+  background: none;
+  padding: 3px;
+  color: #7c828e;
+  display: grid;
+  place-items: center;
+}
+
+.input-wrap button svg {
+  width: 16px;
+}
+
+.login-error {
+  background: #fff0f0;
+  border: 1px solid #ffd5d5;
+  color: #bd3333;
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 10px;
+  margin-top: 5px;
+}
+
+.login-submit {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 9px;
+  height: 45px;
+  background: #11141a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-submit:disabled {
+  opacity: 0.65;
+}
+
+.login-submit svg {
+  width: 16px;
+}
+
+.login-note {
+  margin-top: 19px;
+  padding-top: 16px;
+  border-top: 1px solid #eceef2;
+  color: #7b828e;
+  font-size: 9px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-note svg {
+  width: 14px;
+  color: #229565;
+}
+
+.login-backend {
+  text-align: center;
+  color: #a0a5ad;
+  font-size: 8px;
+  margin: 9px 0 0;
+  word-break: break-all;
+}
+
+.login-glow {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.18;
+  background: #6657ee;
+}
+
+.glow-one {
+  top: -130px;
+  left: -80px;
+}
+
+.glow-two {
+  bottom: -150px;
+  right: -90px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 950px) {
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .twocol {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: 0.2s;
+  }
+
+  .sidebar.show {
+    transform: none;
+  }
+
+  .brand button {
+    display: block;
+  }
+
+  .main,
+  main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .menub {
+    display: block;
+  }
+
+  .crumb {
+    display: none;
+  }
+
+  header {
+    padding: 0 16px;
+  }
+
+  .content {
+    padding: 25px 15px;
+  }
+
+  .welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .welcome h1 {
+    font-size: 23px;
+  }
+
+  .user span,
+  .user > svg {
+    display: none;
+  }
+}
