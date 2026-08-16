@@ -1,4 +1,0 @@
-const bcrypt=require("bcrypt"),jwt=require("jsonwebtoken"),prisma=require("../config/prisma"); const token=u=>jwt.sign({userId:u.id,role:u.role},process.env.JWT_SECRET||"dev-secret",{expiresIn:"1d"});
-async function register(req,res){const {email,password,role}=req.body;if(await prisma.user.findUnique({where:{email}}))return res.status(409).json({message:"Email already registered"});const u=await prisma.user.create({data:{email,password:await bcrypt.hash(password,10),role},select:{id:true,email:true,role:true,status:true}});res.status(201).json({user:u,token:token(u)})}
-async function login(req,res){const {email,password}=req.body,u=await prisma.user.findUnique({where:{email}});if(!u||!(await bcrypt.compare(password,u.password)))return res.status(401).json({message:"Invalid email or password"});res.json({user:{id:u.id,email:u.email,role:u.role,status:u.status},token:token(u)})}
-module.exports={register,login};

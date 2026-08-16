@@ -1,2 +1,0 @@
-const {z}=require("zod"); const f={fullName:z.string().min(2).max(100),phone:z.string().max(20).optional(),bio:z.string().max(1000).optional(),resume:z.string().max(500).optional(),location:z.string().max(200).optional()};
-module.exports={createProfileSchema:z.object({body:z.object(f),params:z.object({}),query:z.object({})}),updateProfileSchema:z.object({body:z.object(f).partial(),params:z.object({}),query:z.object({})})};

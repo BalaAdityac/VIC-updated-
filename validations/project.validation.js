@@ -1,2 +1,0 @@
-const {z}=require("zod"); const f={title:z.string().min(2),description:z.string().min(2),github:z.string().url().optional(),liveLink:z.string().url().optional(),technology:z.string().min(1)}; const id={body:z.object({}),params:z.object({id:z.string().uuid()}),query:z.object({})};
-module.exports={createProjectSchema:z.object({body:z.object(f),params:z.object({}),query:z.object({})}),updateProjectSchema:z.object({body:z.object(f).partial(),params:z.object({id:z.string().uuid()}),query:z.object({})}),idSchema:z.object(id)};
