@@ -14,7 +14,7 @@ export default function WhyChooseVIC() {
     <section id="why-us" className="py-28">
       <div className="container-vic">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]">Why Us</div>
+          <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]"> Why Us </div>
           <h2 className="section-title mt-4">A vision built around <span className="gradient-text">your growth.</span></h2>
           <p className="mt-5 text-[#60758A] leading-7">Our vision and mission are at the heart of everything we build for students and aspiring professionals.</p>
         </div>

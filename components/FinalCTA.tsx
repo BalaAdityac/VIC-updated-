@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function FinalCTA() {
   return (
-    <section className="py-20">
+    <section className=" py-20">
       <div className="container-vic">
         <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-[#1677FF] via-[#18BFE7] to-[#7564F5] p-10 text-center text-white md:p-20">
           <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full bg-white/20 blur-3xl" />

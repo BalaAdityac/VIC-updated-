@@ -1,4 +1,5 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+<<<<<<< HEAD
 import cors from '@fastify/cors';
 import {
   PrismaClient,
@@ -13,6 +14,13 @@ import {
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+=======
+import { PrismaClient, InternshipStatus, InternshipMode, ApplicationStatus, InterviewStatus, OfferStatus, OnboardingStatus, CompanyStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
+import cors from '@fastify/cors';
+>>>>>>> sukruthi
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production';
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -20,10 +28,14 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const prisma = new PrismaClient();
 const app: FastifyInstance = Fastify({ logger: true });
 
+<<<<<<< HEAD
 // Register CORS
 app.register(cors, {
   origin: true
 });
+=======
+
+>>>>>>> sukruthi
 
 // ==========================================
 // TYPES & EXTENSIONS
@@ -44,6 +56,7 @@ declare module 'fastify' {
 // ZOD VALIDATION SCHEMAS
 // ==========================================
 const RegisterCompanySchema = z.object({
+<<<<<<< HEAD
   companyName: z.string().min(2, "Company name must be at least 2 characters").max(100),
   email: z.string().email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -60,12 +73,18 @@ const LoginCompanySchema = z.object({
 
 const UpdateCompanyProfileSchema = z.object({
   companyName: z.string().min(2).max(100).optional(),
+=======
+  companyName: z.string().min(2).max(100),
+  email: z.string().email(),
+  password: z.string().min(6),
+>>>>>>> sukruthi
   website: z.string().url().optional().or(z.literal('')),
   description: z.string().max(2000).optional(),
   address: z.string().optional(),
   gstNumber: z.string().max(50).optional()
 });
 
+<<<<<<< HEAD
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
   newPassword: z.string().min(6, "New password must be at least 6 characters")
@@ -79,15 +98,36 @@ const CreateInternshipSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(150),
   description: z.string().min(10, "Description must be at least 10 characters"),
   location: z.string().min(2, "Location is required"),
+=======
+const LoginCompanySchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6)
+});
+
+const CreateInternshipSchema = z.object({
+  title: z.string().min(3).max(150),
+  description: z.string().min(10),
+  location: z.string().min(2),
+>>>>>>> sukruthi
   mode: z.enum(['REMOTE', 'HYBRID', 'ON_SITE']).default('REMOTE'),
   salary: z.number().nonnegative().optional(),
   stipend: z.number().nonnegative().optional(),
   durationMonths: z.number().int().positive().optional(),
+<<<<<<< HEAD
   skills: z.array(z.string()).min(1, "Specify at least one skill"),
+=======
+  skills: z.array(z.string()).min(1),
+>>>>>>> sukruthi
   status: z.enum(['DRAFT', 'ACTIVE', 'CLOSED', 'ARCHIVED']).default('DRAFT'),
   deadline: z.string().datetime().optional()
 });
 
+<<<<<<< HEAD
 const UpdateInternshipSchema = CreateInternshipSchema.partial();
 
 const ChangeInternshipStatusSchema = z.object({
@@ -108,11 +148,18 @@ const CreateApplicationSchema = z.object({
   internshipId: z.string().uuid("Invalid Internship UUID"),
   studentId: z.string().uuid("Invalid Student UUID"),
   resumeUrl: z.string().url("Valid resume URL is required"),
+=======
+const CreateApplicationSchema = z.object({
+  internshipId: z.string().uuid(),
+  studentId: z.string().uuid(),
+  resumeUrl: z.string().url(),
+>>>>>>> sukruthi
   coverLetter: z.string().max(3000).optional(),
   portfolioUrl: z.string().url().optional().or(z.literal('')),
   githubUrl: z.string().url().optional().or(z.literal(''))
 });
 
+<<<<<<< HEAD
 const StudentApplySchema = z.object({
   internshipId: z.string().uuid("Invalid Internship UUID"),
   resumeUrl: z.string().url("Valid resume URL is required"),
@@ -150,6 +197,29 @@ const CreateOfferSchema = z.object({
   stipendAmount: z.number().positive("Stipend amount must be positive"),
   joiningDate: z.string().datetime("Joining date must be an ISO date string"),
   offerLetterUrl: z.string().url("Valid offer letter URL is required")
+=======
+const CreateInterviewSchema = z.object({
+  applicationId: z.string().uuid(),
+  roundNumber: z.number().int().positive(),
+  roundName: z.string().min(2).max(100),
+  meetingUrl: z.string().url().optional().or(z.literal('')),
+  scheduledAt: z.string().datetime()
+});
+
+const CreateEvaluationSchema = z.object({
+  interviewId: z.string().uuid(),
+  evaluatorId: z.string().uuid(),
+  score: z.number().min(0).max(10),
+  passed: z.boolean(),
+  feedback: z.string().min(5)
+});
+
+const CreateOfferSchema = z.object({
+  applicationId: z.string().uuid(),
+  stipendAmount: z.number().positive(),
+  joiningDate: z.string().datetime(),
+  offerLetterUrl: z.string().url()
+>>>>>>> sukruthi
 });
 
 const RespondOfferSchema = z.object({
@@ -157,8 +227,13 @@ const RespondOfferSchema = z.object({
 });
 
 const CreateOnboardingSchema = z.object({
+<<<<<<< HEAD
   offerId: z.string().uuid("Invalid Offer UUID"),
   startDate: z.string().datetime("Start date must be an ISO date string"),
+=======
+  offerId: z.string().uuid(),
+  startDate: z.string().datetime(),
+>>>>>>> sukruthi
   notes: z.string().optional()
 });
 
@@ -166,13 +241,23 @@ const UpdateOnboardingStatusSchema = z.object({
   status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'])
 });
 
+<<<<<<< HEAD
 // ==========================================
 // MIDDLEWARES & OWNERSHIP HELPERS
+=======
+const VerifyCompanySchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED'])
+});
+
+// ==========================================
+// MIDDLEWARES & HELPERS
+>>>>>>> sukruthi
 // ==========================================
 async function authenticate(request: FastifyRequest, reply: FastifyReply) {
   try {
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+<<<<<<< HEAD
       return reply.status(401).send({ error: 'Unauthorized', message: 'Bearer token missing or invalid' });
     }
 
@@ -180,6 +265,14 @@ async function authenticate(request: FastifyRequest, reply: FastifyReply) {
     request.user = jwt.verify(token, JWT_SECRET) as AuthUser;
   } catch (err) {
     return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid or expired JWT token' });
+=======
+      return reply.status(401).send({ error: 'Unauthorized', message: 'Bearer token missing' });
+    }
+    const token = authHeader.split(' ')[1];
+    request.user = jwt.verify(token, JWT_SECRET) as AuthUser;
+  } catch (err) {
+    return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid or expired token' });
+>>>>>>> sukruthi
   }
 }
 
@@ -187,14 +280,20 @@ async function checkInternshipOwnership(internshipId: string, companyId: string)
   const internship = await prisma.internship.findFirst({
     where: { id: internshipId, deletedAt: null }
   });
+<<<<<<< HEAD
 
   if (!internship) return { error: 'NOT_FOUND', message: 'Internship posting not found' };
   if (internship.companyId !== companyId) return { error: 'FORBIDDEN', message: 'Forbidden: You do not own this internship' };
 
+=======
+  if (!internship) return { error: 'NOT_FOUND', message: 'Internship posting not found' };
+  if (internship.companyId !== companyId) return { error: 'FORBIDDEN', message: 'Forbidden' };
+>>>>>>> sukruthi
   return { internship };
 }
 
 // ==========================================
+<<<<<<< HEAD
 // ROUTE HANDLERS
 // ==========================================
 
@@ -218,6 +317,16 @@ app.get('/favicon.ico', (request, reply) => {
 
 // --- DASHBOARD & SETTINGS ---
 
+=======
+// ROUTES
+// ==========================================
+
+app.get('/', async () => ({ message: 'Welcome to ATS Service API', version: '1.0.0', status: 'ONLINE' }));
+app.get('/health', async () => ({ status: 'UP', timestamp: new Date().toISOString() }));
+app.get('/favicon.ico', (request, reply) => reply.status(204).send());
+
+// --- DASHBOARD & SETTINGS ---
+>>>>>>> sukruthi
 app.get('/api/company/dashboard', { preHandler: [authenticate] }, async (request, reply) => {
   const companyId = request.user!.id;
 
@@ -249,6 +358,10 @@ app.patch('/api/company/change-password', { preHandler: [authenticate] }, async 
   return reply.send({ message: 'Password updated successfully' });
 });
 
+<<<<<<< HEAD
+=======
+// --- ADMIN VERIFICATION ---
+>>>>>>> sukruthi
 app.patch('/api/admin/companies/:id/verify', async (request, reply) => {
   const { id } = request.params as { id: string };
   const validation = VerifyCompanySchema.safeParse(request.body);
@@ -262,14 +375,19 @@ app.patch('/api/admin/companies/:id/verify', async (request, reply) => {
   return reply.send({ message: `Company verification status set to ${validation.data.status}`, company });
 });
 
+<<<<<<< HEAD
 // --- PHASE 1: COMPANY AUTH & PROFILE ---
 
+=======
+// --- COMPANY AUTH & PROFILE ---
+>>>>>>> sukruthi
 app.post('/api/company/register', async (request, reply) => {
   const validation = RegisterCompanySchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const { companyName, email, password, website, description, address, gstNumber } = validation.data;
   const existing = await prisma.company.findUnique({ where: { email } });
+<<<<<<< HEAD
   if (existing) return reply.status(400).send({ error: 'Conflict', message: 'Email address is already registered' });
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -288,6 +406,17 @@ app.post('/api/company/register', async (request, reply) => {
 
   const token = jwt.sign({ id: company.id, email: company.email, role: 'COMPANY' }, JWT_SECRET, { expiresIn: '7d' });
   return reply.status(201).send({ message: 'Company registered successfully', token, company });
+=======
+  if (existing) return reply.status(400).send({ error: 'Conflict', message: 'Email address already registered' });
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const company = await prisma.company.create({
+    data: { companyName, email, passwordHash, website: website || null, description: description || null, address: address || null, gstNumber: gstNumber || null }
+  });
+
+  const token = jwt.sign({ id: company.id, email: company.email, role: 'COMPANY' }, JWT_SECRET, { expiresIn: '7d' });
+  return reply.status(201).send({ message: 'Company registered', token, company });
+>>>>>>> sukruthi
 });
 
 app.post('/api/company/login', async (request, reply) => {
@@ -297,6 +426,7 @@ app.post('/api/company/login', async (request, reply) => {
   const { email, password } = validation.data;
   const company = await prisma.company.findFirst({ where: { email, deletedAt: null } });
   if (!company || !(await bcrypt.compare(password, company.passwordHash))) {
+<<<<<<< HEAD
     return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid email or password' });
   }
 
@@ -338,6 +468,16 @@ app.delete('/api/company/profile', { preHandler: [authenticate] }, async (reques
 
 // --- INTERNSHIP MANAGEMENT & DISCOVERY ---
 
+=======
+    return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign({ id: company.id, email: company.email, role: 'COMPANY' }, JWT_SECRET, { expiresIn: '7d' });
+  return reply.send({ message: 'Login successful', token });
+});
+
+// --- INTERNSHIPS ---
+>>>>>>> sukruthi
 app.post('/api/internships', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = CreateInternshipSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
@@ -352,13 +492,17 @@ app.post('/api/internships', { preHandler: [authenticate] }, async (request, rep
       mode: data.mode as InternshipMode,
       salary: data.salary || null,
       stipend: data.stipend || null,
+<<<<<<< HEAD
       durationMonths: data.durationMonths || null,
+=======
+>>>>>>> sukruthi
       skills: data.skills,
       status: data.status as InternshipStatus,
       deadline: data.deadline ? new Date(data.deadline) : null
     }
   });
 
+<<<<<<< HEAD
   return reply.status(201).send({ message: 'Internship created successfully', internship });
 });
 
@@ -483,11 +627,18 @@ app.delete('/api/internships/:id', { preHandler: [authenticate] }, async (reques
 
 // --- PHASE 2 & STUDENT APPLICATIONS MODULE ---
 
+=======
+  return reply.status(201).send({ message: 'Internship created', internship });
+});
+
+// --- APPLICATIONS ---
+>>>>>>> sukruthi
 app.post('/api/applications', async (request, reply) => {
   const validation = CreateApplicationSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const { internshipId, studentId, resumeUrl, coverLetter, portfolioUrl, githubUrl } = validation.data;
+<<<<<<< HEAD
 
   const internship = await prisma.internship.findFirst({
     where: { id: internshipId, deletedAt: null }
@@ -698,11 +849,22 @@ app.patch('/api/applications/:id/withdraw', async (request, reply) => {
 
 // --- PHASE 3: INTERVIEWS MODULE ---
 
+=======
+  const application = await prisma.application.create({
+    data: { internshipId, studentId, resumeUrl, coverLetter: coverLetter || null, portfolioUrl: portfolioUrl || null, githubUrl: githubUrl || null }
+  });
+
+  return reply.status(201).send({ message: 'Application submitted', application });
+});
+
+// --- INTERVIEWS ---
+>>>>>>> sukruthi
 app.post('/api/interviews', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = CreateInterviewSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const { applicationId, roundNumber, roundName, meetingUrl, scheduledAt } = validation.data;
+<<<<<<< HEAD
 
   const application = await prisma.application.findUnique({
     where: { id: applicationId },
@@ -712,10 +874,13 @@ app.post('/api/interviews', { preHandler: [authenticate] }, async (request, repl
   if (!application) return reply.status(404).send({ error: 'Not Found', message: 'Application not found' });
   if (application.internship.companyId !== request.user!.id) return reply.status(403).send({ error: 'Forbidden', message: 'You do not own this job posting' });
 
+=======
+>>>>>>> sukruthi
   const interview = await prisma.$transaction([
     prisma.interview.create({
       data: { applicationId, roundNumber, roundName, meetingUrl: meetingUrl || null, scheduledAt: new Date(scheduledAt) }
     }),
+<<<<<<< HEAD
     prisma.application.update({
       where: { id: applicationId },
       data: { status: ApplicationStatus.INTERVIEWING }
@@ -746,10 +911,20 @@ app.patch('/api/interviews/:id/status', { preHandler: [authenticate] }, async (r
 
 // --- PHASE 4: EVALUATIONS & OFFERS MODULE ---
 
+=======
+    prisma.application.update({ where: { id: applicationId }, data: { status: ApplicationStatus.INTERVIEWING } })
+  ]);
+
+  return reply.status(201).send({ message: 'Interview scheduled', interview: interview[0] });
+});
+
+// --- EVALUATIONS & OFFERS ---
+>>>>>>> sukruthi
 app.post('/api/evaluations', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = CreateEvaluationSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
+<<<<<<< HEAD
   const { interviewId, evaluatorId, score, passed, feedback } = validation.data;
 
   const evaluation = await prisma.evaluation.create({
@@ -765,6 +940,10 @@ app.get('/api/evaluations/interview/:interviewId', async (request, reply) => {
   if (!evaluation) return reply.status(404).send({ error: 'Not Found', message: 'No evaluation logged for this interview' });
 
   return reply.send({ evaluation });
+=======
+  const evaluation = await prisma.evaluation.create({ data: validation.data });
+  return reply.status(201).send({ message: 'Evaluation saved', evaluation });
+>>>>>>> sukruthi
 });
 
 app.post('/api/offers', { preHandler: [authenticate] }, async (request, reply) => {
@@ -772,6 +951,7 @@ app.post('/api/offers', { preHandler: [authenticate] }, async (request, reply) =
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
   const { applicationId, stipendAmount, joiningDate, offerLetterUrl } = validation.data;
+<<<<<<< HEAD
 
   const application = await prisma.application.findUnique({ where: { id: applicationId }, include: { internship: true } });
   if (!application) return reply.status(404).send({ error: 'Not Found', message: 'Application record not found' });
@@ -788,6 +968,14 @@ app.post('/api/offers', { preHandler: [authenticate] }, async (request, reply) =
   ]);
 
   return reply.status(201).send({ message: 'Offer letter generated and sent', offer: offer[0] });
+=======
+  const offer = await prisma.$transaction([
+    prisma.offer.create({ data: { applicationId, stipendAmount, joiningDate: new Date(joiningDate), offerLetterUrl } }),
+    prisma.application.update({ where: { id: applicationId }, data: { status: ApplicationStatus.OFFERED } })
+  ]);
+
+  return reply.status(201).send({ message: 'Offer issued', offer: offer[0] });
+>>>>>>> sukruthi
 });
 
 app.patch('/api/offers/:id/respond', async (request, reply) => {
@@ -795,6 +983,7 @@ app.patch('/api/offers/:id/respond', async (request, reply) => {
   const validation = RespondOfferSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
 
+<<<<<<< HEAD
   const offer = await prisma.offer.update({
     where: { id },
     data: { status: validation.data.status as OfferStatus }
@@ -805,6 +994,13 @@ app.patch('/api/offers/:id/respond', async (request, reply) => {
 
 // --- ONBOARDING MODULE ---
 
+=======
+  const offer = await prisma.offer.update({ where: { id }, data: { status: validation.data.status as OfferStatus } });
+  return reply.send({ message: `Offer ${validation.data.status.toLowerCase()}`, offer });
+});
+
+// --- ONBOARDING MODULE ---
+>>>>>>> sukruthi
 app.post('/api/onboarding', { preHandler: [authenticate] }, async (request, reply) => {
   const validation = CreateOnboardingSchema.safeParse(request.body);
   if (!validation.success) return reply.status(400).send({ error: 'Validation Error', details: validation.error.format() });
@@ -842,6 +1038,7 @@ app.setErrorHandler((error, request, reply) => {
   reply.status(500).send({ error: 'Internal Server Error', message: (error as Error).message || 'Unexpected Error' });
 });
 
+<<<<<<< HEAD
 // ==========================================
 // SERVER INITIALIZATION FUNCTION
 // ==========================================
@@ -849,6 +1046,13 @@ const start = async () => {
   try {
     const address = await app.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`🚀 Complete ATS Backend API running at ${address}`);
+=======
+// Start Server
+const start = async () => {
+  try {
+    await app.listen({ port: PORT, host: '0.0.0.0' });
+    console.log(`🚀 Complete ATS Backend API running at http://localhost:${PORT}`);
+>>>>>>> sukruthi
   } catch (err) {
     app.log.error(err);
     process.exit(1);

@@ -1,0 +1,1 @@
+const r=require("express").Router(),a=require("../middlewares/auth"),v=require("../middlewares/validate"),c=require("../controllers/project.controller"),s=require("../validations/project.validation");r.use(a);r.post("/",v(s.createProjectSchema),c.create);r.get("/",c.list);r.put("/:id",v(s.updateProjectSchema),c.update);r.delete("/:id",v(s.idSchema),c.remove);module.exports=r;

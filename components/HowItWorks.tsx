@@ -12,7 +12,7 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-28">
+    <section id="how-it-works" className=" py-28">
       <div className="container-vic">
         <div className="rounded-[3rem] bg-gradient-to-br from-[#DDF7FF] via-[#EFFFFA] to-[#EEE8FF] p-8 md:p-16">
           <div className="mx-auto max-w-2xl text-center">
