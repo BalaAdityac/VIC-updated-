@@ -27,7 +27,7 @@ export default function Navbar() {
             V
           </div>
           <span className="text-lg sm:text-xl font-black text-[#1E1B4B] tracking-tight uppercase">
-            VISIONARY<span className="text-[#3B3588]">.</span>
+            Visionary Interns club <span className="text-[#3B3588]"></span>
           </span>
         </Link>
 

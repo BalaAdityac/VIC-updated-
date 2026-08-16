@@ -1,6 +1,30 @@
-// src/lib/student-api.ts
+// lib/student-api.ts (or src/lib/student-api.ts)
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000';
+
+export async function ensureStudentToken(): Promise<string> {
+  if (typeof window === 'undefined') return '';
+  let token = localStorage.getItem('jwt_token');
+
+  // If no token or malformed token, get a fresh signed token from Fastify
+  if (!token || token.split('.').length !== 3) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/student/dev-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'student.aditya@example.com' })
+      });
+      const data = await res.json();
+      if (data.token) {
+        token = data.token;
+        localStorage.setItem('jwt_token', token);
+      }
+    } catch (err) {
+      console.error('Failed to get student token from backend:', err);
+    }
+  }
+  return token || '';
+}
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null;
@@ -83,7 +107,6 @@ export interface StudentDashboardSummary {
   upcomingInterviews: Array<InterviewSchedule & { internshipTitle: string; companyName: string }>;
 }
 
-// 1. Fetch Active Internships with Filter
 export async function getActiveInternships(filters?: { search?: string; mode?: string; location?: string }): Promise<Internship[]> {
   const params = new URLSearchParams();
   if (filters?.search) params.append('search', filters.search);
@@ -99,7 +122,6 @@ export async function getActiveInternships(filters?: { search?: string; mode?: s
   return data.internships || [];
 }
 
-// 2. Fetch Single Internship Details
 export async function getInternshipDetails(id: string): Promise<Internship> {
   const res = await fetch(`${API_BASE_URL}/api/internships/${id}`);
   if (!res.ok) {
@@ -110,7 +132,6 @@ export async function getInternshipDetails(id: string): Promise<Internship> {
   return data.internship;
 }
 
-// 3. Apply to Internship (Token-derived student ID + duplicate checks)
 export async function applyToInternship(payload: {
   internshipId: string;
   resumeUrl: string;
@@ -118,6 +139,7 @@ export async function applyToInternship(payload: {
   portfolioUrl?: string;
   githubUrl?: string;
 }): Promise<{ message: string; application: ApplicationRecord }> {
+  await ensureStudentToken();
   const res = await fetch(`${API_BASE_URL}/api/applications/student/apply`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -131,11 +153,20 @@ export async function applyToInternship(payload: {
   return data;
 }
 
-// 4. Retrieve All Student Applications
 export async function getMyApplications(): Promise<ApplicationRecord[]> {
-  const res = await fetch(`${API_BASE_URL}/api/applications/my-applications`, {
+  await ensureStudentToken();
+  let res = await fetch(`${API_BASE_URL}/api/applications/my-applications`, {
     headers: getAuthHeaders()
   });
+
+  // If unauthorized, clear old token, fetch a fresh signed token and retry once
+  if (res.status === 401 && typeof window !== 'undefined') {
+    localStorage.removeItem('jwt_token');
+    await ensureStudentToken();
+    res = await fetch(`${API_BASE_URL}/api/applications/my-applications`, {
+      headers: getAuthHeaders()
+    });
+  }
 
   const data = await res.json();
   if (!res.ok) {
@@ -144,7 +175,6 @@ export async function getMyApplications(): Promise<ApplicationRecord[]> {
   return data.applications || [];
 }
 
-// 5. Aggregate Student Dashboard Analytics & Upcoming Interviews
 export async function getStudentDashboardSummary(): Promise<StudentDashboardSummary> {
   const apps = await getMyApplications();
   
@@ -168,7 +198,6 @@ export async function getStudentDashboardSummary(): Promise<StudentDashboardSumm
     }
   });
 
-  // Sort upcoming interviews chronologically
   upcomingInterviews.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
 
   return {
