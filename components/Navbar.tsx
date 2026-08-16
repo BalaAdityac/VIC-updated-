@@ -77,7 +77,7 @@ export default function Navbar() {
             </div>
             <Link href="/" className="flex items-center gap-3">
   <img
-    src="/logo.png"
+    src="/logo.jpg"
     alt="Visionary Interns Club Logo"
     className="h-12 w-12 object-contain"
   />
