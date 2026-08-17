@@ -1,8 +1,8 @@
 const gallery = [
-  { title: "Learning Together", image: "https://images.unsplash.com/photo1.jpeg?auto=format&fit=crop&w=900&q=80" },
-  { title: "Building Projects", image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80" },
-  { title: "Mentorship & Growth", image: "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=80" },
-  { title: "Career Opportunities", image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80" },
+  { title: "Learning Together", image: "/gallery/photo1.jpeg" },
+  { title: "Building Projects", image: "/gallery/photo2.jpeg" },
+  { title: "Mentorship & Growth", image: "/gallery/photo3.jpeg" },
+  { title: "Career Opportunities", image: "/gallery/4.jpeg" },
 ];
 
 export default function Gallery() {

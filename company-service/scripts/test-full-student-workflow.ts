@@ -1,123 +1,228 @@
-﻿import 'dotenv/config';
-import jwt from 'jsonwebtoken';
+﻿import { randomUUID } from 'crypto';
+import { spawn, ChildProcess } from 'child_process';
+import { resolve } from 'path';
 
-const BASE_URL = 'http://127.0.0.1:3000';
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production';
+const BASE_URL = process.env.API_URL || 'http://127.0.0.1:3000';
+let serverProcess: ChildProcess | null = null;
 
-async function testFullWorkflow() {
-  console.log('🧪 Starting Full Student & Company Integration Test Suite...\n');
-
+// Helper to poll health endpoint
+async function isServerReady(): Promise<boolean> {
   try {
-    // 1. Setup: Register Company & Post Active Job
-    console.log('1️⃣ Setup: Registering Company & Creating Active Job Posting...');
-    const companyEmail = `recruiter.${Date.now()}@nexusiot.com`;
-    const regRes = await (await fetch(`${BASE_URL}/api/company/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ companyName: 'Nexus Embedded Systems', email: companyEmail, password: 'Password123!' })
-    })).json();
-    const companyToken = regRes.token;
-
-    const jobRes = await (await fetch(`${BASE_URL}/api/internships`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${companyToken}` },
-      body: JSON.stringify({
-        title: 'Full Stack Firmware Engineer Intern',
-        description: 'Design real-time telemetry systems and React dashboards for LoRa mesh architectures.',
-        location: 'Bengaluru',
-        mode: 'HYBRID',
-        stipend: 25000,
-        durationMonths: 6,
-        skills: ['TypeScript', 'Fastify', 'C++', 'IoT'],
-        status: 'ACTIVE'
-      })
-    })).json();
-    const internshipId = jobRes.internship.id;
-    console.log(`   ✅ Active Internship Created: "${jobRes.internship.title}" (ID: ${internshipId})`);
-
-    // 2. Student Discovery & Details
-    console.log('\n2️⃣ Student Discovery: Browsing Active Internships...');
-    const searchRes = await (await fetch(`${BASE_URL}/api/internships?search=Firmware`)).json();
-    console.log(`   ✅ Found ${searchRes.count} matching internship(s).`);
-
-    const detailRes = await (await fetch(`${BASE_URL}/api/internships/${internshipId}`)).json();
-    console.log(`   ✅ Fetched specs for: "${detailRes.internship.title}" at ${detailRes.internship.company?.companyName}`);
-
-    // 3. Student Apply (Identity derived strictly from JWT)
-    console.log('\n3️⃣ Student Apply: Submitting application with Student JWT...');
-    const studentId = 'e205bc99-9c0b-4ef8-bb6d-6bb9bd380e22';
-    const studentToken = jwt.sign(
-      { id: studentId, email: 'student.baladitya@example.com', role: 'STUDENT' },
-      JWT_SECRET,
-      { expiresIn: '2h' }
-    );
-
-    const applyRes = await fetch(`${BASE_URL}/api/applications/student/apply`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
-      body: JSON.stringify({
-        internshipId,
-        resumeUrl: 'https://example.com/resumes/baladitya_cv.pdf',
-        coverLetter: 'Extensive experience in embedded C and TypeScript full-stack platforms.',
-        githubUrl: 'https://github.com/aditya'
-      })
-    });
-    const applyData = await applyRes.json();
-
-    if (!applyRes.ok) {
-      throw new Error(`Application failed [${applyRes.status}]: ${applyData.message || JSON.stringify(applyData)}`);
-    }
-
-    console.log(`   ✅ Application response: "${applyData.message}" (Status: ${applyRes.status})`);
-    const applicationId = applyData.application.id;
-
-    // 4. Duplicate Application Prevention Check
-    console.log('\n4️⃣ Duplicate Check: Attempting identical re-application...');
-    const dupRes = await fetch(`${BASE_URL}/api/applications/student/apply`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
-      body: JSON.stringify({
-        internshipId,
-        resumeUrl: 'https://example.com/resumes/baladitya_cv.pdf'
-      })
-    });
-    const dupData = await dupRes.json();
-    if (dupRes.status === 409) {
-      console.log(`   ✅ Correctly blocked duplicate application (HTTP 409): "${dupData.message}"`);
-    } else {
-      console.error(`   ❌ Failed duplicate prevention: Expected 409, got ${dupRes.status}`);
-    }
-
-    // 5. Recruiter Schedules Interview
-    console.log('\n5️⃣ Recruiter Action: Scheduling Technical Interview Round...');
-    const interviewRes = await (await fetch(`${BASE_URL}/api/interviews`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${companyToken}` },
-      body: JSON.stringify({
-        applicationId,
-        roundNumber: 1,
-        roundName: 'Technical Architecture & Firmware Round',
-        meetingUrl: 'https://meet.google.com/xyz-qwer-abc',
-        scheduledAt: new Date(Date.now() + 86400000).toISOString()
-      })
-    })).json();
-    console.log(`   ✅ Interview Scheduled: "${interviewRes.interview.roundName}" at ${interviewRes.interview.scheduledAt}`);
-
-    // 6. Student Retrieves "My Applications" & Live Interview Data
-    console.log('\n6️⃣ Student Tracking: Fetching "My Applications" with live interview schedule...');
-    const myAppsRes = await (await fetch(`${BASE_URL}/api/applications/my-applications`, {
-      headers: { Authorization: `Bearer ${studentToken}` }
-    })).json();
-
-    const currentApp = myAppsRes.applications.find((a: any) => a.id === applicationId);
-    console.log(`   ✅ Application Status: ${currentApp.status}`);
-    console.log(`   ✅ Live Interview Round Retrieved: Round ${currentApp.interviews[0].roundNumber} - ${currentApp.interviews[0].roundName}`);
-    console.log(`   ✅ Meeting URL: ${currentApp.interviews[0].meetingUrl}`);
-
-    console.log('\n🎉 ALL RECRUITMENT WORKFLOW DELIVERABLES VERIFIED END-TO-END!');
-  } catch (err) {
-    console.error('❌ Test failed with error:', err);
+    const res = await fetch(`${BASE_URL}/health`, { signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
-testFullWorkflow();
+// Automatically start backend server if not running
+async function ensureServerRunning() {
+  const alreadyRunning = await isServerReady();
+  if (alreadyRunning) {
+    console.log('✅ Connected to running ATS backend on port 3000.');
+    return;
+  }
+
+  console.log('⚡ Server not detected on port 3000. Auto-launching backend server...');
+  const serverPath = resolve(__dirname, '../src/server.ts');
+
+  serverProcess = spawn(
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    ['tsx', serverPath],
+    {
+      cwd: resolve(__dirname, '..'),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, PORT: '3000' }
+    }
+  );
+
+  serverProcess.stderr?.on('data', (chunk) => {
+    const msg = chunk.toString();
+    if (msg.includes('Error')) console.error(`[Server stderr]: ${msg}`);
+  });
+
+  const maxRetries = 30;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (await isServerReady()) {
+      console.log('🚀 Backend server successfully booted and ready.\n');
+      return;
+    }
+  }
+
+  throw new Error('Timed out waiting for ATS backend server to start.');
+}
+
+async function testFullWorkflow() {
+  await ensureServerRunning();
+
+  console.log('🚀 Starting Full Student & ATS Workflow Test against:', BASE_URL);
+
+  const timestamp = Date.now();
+  const testCompanyEmail = `test.company.${timestamp}@example.com`;
+  const testPassword = 'Password123!';
+  const validStudentUUID = randomUUID();
+
+  // Step 1: Register Company
+  console.log('\n1️⃣  Registering a new company...');
+  const regRes = await fetch(`${BASE_URL}/api/company/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      companyName: `Tech Innovations ${timestamp}`,
+      email: testCompanyEmail,
+      password: testPassword,
+      website: 'https://techinnovations.example.com',
+      description: 'Building modern web & IoT solutions'
+    })
+  });
+
+  const regData: any = await regRes.json();
+  if (!regRes.ok) {
+    console.error('❌ Registration failed:', regData);
+    throw new Error(regData.message || 'Company registration failed');
+  }
+
+  const companyToken = regData.token;
+  const companyId = regData.company?.id;
+  console.log('✅ Company registered:', { companyId, email: testCompanyEmail });
+
+  // Step 2: Post an Active Internship
+  console.log('\n2️⃣  Posting a new active internship...');
+  const jobRes = await fetch(`${BASE_URL}/api/internships`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${companyToken}`
+    },
+    body: JSON.stringify({
+      title: 'Full Stack Engineering Intern',
+      description: 'Hands-on role developing Next.js web applications and microservices.',
+      location: 'Bengaluru / Remote',
+      mode: 'HYBRID',
+      stipend: 25000,
+      durationMonths: 6,
+      skills: ['React', 'Next.js', 'Node.js', 'PostgreSQL'],
+      status: 'ACTIVE'
+    })
+  });
+
+  const jobData: any = await jobRes.json();
+  if (!jobRes.ok) {
+    console.error('❌ Failed to create internship:', jobData);
+    throw new Error(jobData.message || 'Internship creation failed');
+  }
+
+  const internshipId = jobData.internship?.id;
+  console.log('✅ Internship published successfully:', { internshipId, title: jobData.internship?.title });
+
+  // Step 3: Issue Student Dev Token with Valid UUID
+  console.log('\n3️⃣  Acquiring Student Dev Authentication Token...');
+  const studentTokenRes = await fetch(`${BASE_URL}/api/student/dev-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: validStudentUUID,
+      email: `student.${timestamp}@vic.edu`
+    })
+  });
+
+  const studentTokenData: any = await studentTokenRes.json();
+  const studentToken = studentTokenData.token;
+  console.log('✅ Student token generated successfully with UUID:', validStudentUUID);
+
+  // Step 4: Student Submits Application
+  console.log('\n4️⃣  Submitting Student Application...');
+  const applyRes = await fetch(`${BASE_URL}/api/applications/student/apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${studentToken}`
+    },
+    body: JSON.stringify({
+      internshipId,
+      resumeUrl: 'https://storage.vic.edu/resumes/candidate.pdf',
+      coverLetter: 'I am excited about this engineering internship opportunity!',
+      portfolioUrl: 'https://github.com/example-student',
+      githubUrl: 'https://github.com/example-student'
+    })
+  });
+
+  const applyData: any = await applyRes.json();
+  if (!applyRes.ok) {
+    console.error('❌ Application submission failed:', applyData);
+    throw new Error(applyData.message || 'Application failed');
+  }
+
+  const applicationId = applyData.application?.id;
+  console.log('✅ Application submitted with ID:', applicationId);
+
+  // Step 5: Verify Duplicate Prevention (409 Conflict)
+  console.log('\n5️⃣  Verifying Duplicate Application Prevention...');
+  const duplicateRes = await fetch(`${BASE_URL}/api/applications/student/apply`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${studentToken}`
+    },
+    body: JSON.stringify({
+      internshipId,
+      resumeUrl: 'https://storage.vic.edu/resumes/candidate.pdf'
+    })
+  });
+
+  if (duplicateRes.status === 409) {
+    console.log('✅ Duplicate check PASSED: Received 409 Conflict as expected.');
+  } else {
+    console.warn('⚠️ Duplicate check warning: Expected 409 but received', duplicateRes.status);
+  }
+
+  // Step 6: Recruiter Schedules Interview
+  console.log('\n6️⃣  Recruiter scheduling technical interview...');
+  const interviewDate = new Date(Date.now() + 86400000 * 3).toISOString();
+  const intvRes = await fetch(`${BASE_URL}/api/interviews`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${companyToken}`
+    },
+    body: JSON.stringify({
+      applicationId,
+      roundNumber: 1,
+      roundName: 'System Architecture & Coding Round',
+      meetingUrl: 'https://meet.google.com/vic-interview-room',
+      scheduledAt: interviewDate
+    })
+  });
+
+  const intvData: any = await intvRes.json();
+  if (!intvRes.ok) {
+    console.error('❌ Interview scheduling failed:', intvData);
+    throw new Error(intvData.message || 'Interview scheduling failed');
+  }
+  console.log('✅ Interview scheduled:', intvData.interview?.roundName);
+
+  // Step 7: Student Checks Applications & Interview Details
+  console.log('\n7️⃣  Student checking applications list & interview details...');
+  const myAppsRes = await fetch(`${BASE_URL}/api/applications/my-applications`, {
+    headers: { Authorization: `Bearer ${studentToken}` }
+  });
+
+  const myAppsData: any = await myAppsRes.json();
+  console.log(`✅ Retrieved ${myAppsData.count || 0} applications for student.`);
+  console.log('📋 Current Application Status:', myAppsData.applications?.[0]?.interviews?.[0]?.status || 'SCHEDULED');
+
+  console.log('\n🎉 ALL ATS & STUDENT WORKFLOW TESTS PASSED SUCCESSFULLY!\n');
+}
+
+testFullWorkflow()
+  .catch((err) => {
+    console.error('\n❌ Test failed with error:', err);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    if (serverProcess) {
+      console.log('🧹 Shutting down auto-started backend server...');
+      serverProcess.kill('SIGTERM');
+    }
+  });

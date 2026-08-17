@@ -31,7 +31,7 @@ app.register(cors, {
 export interface AuthUser {
   id: string;
   email: string;
-  role: 'COMPANY' | 'STUDENT' | 'ADMIN';
+  role: 'COMPANY' | 'STUDENT' | 'ADMIN' | 'SUPERADMIN';
 }
 
 declare module 'fastify' {
@@ -191,6 +191,13 @@ async function authenticate(request: FastifyRequest, reply: FastifyReply) {
     }
   } catch (err) {
     return reply.status(401).send({ error: 'Unauthorized', message: 'Invalid or expired JWT token' });
+  }
+}
+
+async function requireSuperAdmin(request: FastifyRequest, reply: FastifyReply) {
+  await authenticate(request, reply);
+  if (!request.user || (request.user.role !== 'SUPERADMIN' && request.user.role !== 'ADMIN')) {
+    return reply.status(403).send({ error: 'Forbidden', message: 'Superadmin privileges required' });
   }
 }
 
@@ -854,6 +861,48 @@ app.post('/api/student/dev-token', async (request, reply) => {
     message: 'Student token issued',
     token,
     student: { id: studentId, email, role: 'STUDENT' }
+  });
+});
+
+// --- SUPERADMIN GOVERNANCE ROUTES ---
+app.post('/api/admin/dev-token', async (request, reply) => {
+  const token = jwt.sign(
+    { id: 'superadmin-root-id', email: 'superadmin@vic.edu', role: 'SUPERADMIN' },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  return reply.send({ message: 'Superadmin token issued', token });
+});
+
+app.get('/api/admin/overview', { preHandler: [requireSuperAdmin] }, async (request, reply) => {
+  const [totalCompanies, totalInternships, totalApplications, totalInterviews, totalOffers] = await Promise.all([
+    prisma.company.count({ where: { deletedAt: null } }),
+    prisma.internship.count({ where: { deletedAt: null } }),
+    prisma.application.count({ where: { deletedAt: null } }),
+    prisma.interview.count(),
+    prisma.offer.count()
+  ]);
+
+  const recentCompanies = await prisma.company.findMany({
+    where: { deletedAt: null },
+    take: 5,
+    orderBy: { createdAt: 'desc' },
+    include: { _count: { select: { internships: true } } }
+  });
+
+  const recentApplications = await prisma.application.findMany({
+    where: { deletedAt: null },
+    take: 5,
+    orderBy: { appliedAt: 'desc' },
+    include: {
+      internship: { select: { title: true, company: { select: { companyName: true } } } }
+    }
+  });
+
+  return reply.send({
+    stats: { totalCompanies, totalInternships, totalApplications, totalInterviews, totalOffers },
+    recentCompanies,
+    recentApplications
   });
 });
 
