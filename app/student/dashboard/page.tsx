@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Briefcase,
@@ -27,6 +28,7 @@ import {
 
 
 export default function StudentDashboard() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "applications" | "internships" | "interviews">("overview");
 
@@ -579,7 +581,7 @@ export default function StudentDashboard() {
                     <div className="pt-3 border-t border-[#3B3588]/10 flex items-center justify-between">
                       <span className="font-black text-xs text-[#202960]">{job.stipend}</span>
                       <button
-                        onClick={() => alert(`Application submitted for ${job.title}!`)}
+                        onClick={() => router.push(`/student/internships/${job.id}`)}
                         className="px-4 py-1.5 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition"
                       >
                         Apply Now
