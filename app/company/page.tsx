@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -21,12 +21,20 @@ import {
   Clock,
   ExternalLink,
   Loader2,
-  CheckCheck
+  CheckCheck,
+  Globe,
+  Mail,
+  MapPin,
+  Save,
+  CheckCircle2,
+  FileCheck,
+  Calendar,
+  FileText
 } from "lucide-react";
 
 export default function CompanyDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "applications" | "interviews">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "applications" | "interviews" | "profile">("overview");
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,11 +52,30 @@ export default function CompanyDashboard() {
   const [isPosting, setIsPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
-  const [companyName, setCompanyName] = useState("Tenar");
-  const [companyEmail, setCompanyEmail] = useState("admin@tenar.com");
+  // Schedule Interview Modal State
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
+  const [interviewForm, setInterviewForm] = useState({
+    roundName: "Technical Systems Round",
+    date: "2026-08-20",
+    time: "14:30",
+    meetingUrl: "https://meet.google.com/vic-recruitment-room"
+  });
 
-  // Mockup base jobs
-  const initialJobs = [
+  // Dynamic Company Profile State
+  const [companyProfile, setCompanyProfile] = useState({
+    companyName: "Tenar Systems",
+    email: "admin@tenar.com",
+    website: "https://tenar.in",
+    location: "Bengaluru, Karnataka, India",
+    registrationNumber: "CIN-U72200KA2024PTC189",
+    description: "Pioneering embedded hardware architectures, smart sensor nodes, and real-time RTOS firmware telemetry."
+  });
+
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Base Mockup Jobs
+  const initialBaseJobs = useMemo(() => [
     {
       id: "job-1",
       title: "Full Stack Engineering Intern",
@@ -71,12 +98,12 @@ export default function CompanyDashboard() {
       postedAt: "5 days ago",
       skills: ["C++", "FreeRTOS", "Sensors"]
     }
-  ];
+  ], []);
 
-  const [jobs, setJobs] = useState(initialJobs);
+  const [jobs, setJobs] = useState<any[]>(initialBaseJobs);
 
-  // Applicants Mockup Data
-  const [applicants, setApplicants] = useState([
+  // Base Mockup Applicants
+  const initialBaseApplicants = useMemo(() => [
     {
       id: "app-1",
       name: "Bala Aditya C",
@@ -84,7 +111,7 @@ export default function CompanyDashboard() {
       email: "aditya@example.com",
       status: "INTERVIEWING",
       appliedAt: "Aug 16, 2026",
-      resumeUrl: "#"
+      resumeUrl: "https://storage.vic.edu/resumes/aditya_resume.pdf"
     },
     {
       id: "app-2",
@@ -93,7 +120,7 @@ export default function CompanyDashboard() {
       email: "disham@example.com",
       status: "APPLIED",
       appliedAt: "Aug 15, 2026",
-      resumeUrl: "#"
+      resumeUrl: "https://storage.vic.edu/resumes/disham_resume.pdf"
     },
     {
       id: "app-3",
@@ -102,11 +129,13 @@ export default function CompanyDashboard() {
       email: "sanjay@example.com",
       status: "OFFERED",
       appliedAt: "Aug 14, 2026",
-      resumeUrl: "#"
+      resumeUrl: "https://storage.vic.edu/resumes/sanjay_resume.pdf"
     }
-  ]);
+  ], []);
 
-  // Scheduled Interviews Mockup Data
+  const [applicants, setApplicants] = useState<any[]>(initialBaseApplicants);
+
+  // Base Mockup Interviews
   const [interviews, setInterviews] = useState([
     {
       id: "intv-1",
@@ -128,7 +157,7 @@ export default function CompanyDashboard() {
     }
   ]);
 
-  // Form State for Post New Role
+  // Post Role Form State
   const [formData, setFormData] = useState({
     title: "",
     mode: "HYBRID",
@@ -139,29 +168,139 @@ export default function CompanyDashboard() {
     description: ""
   });
 
-  // Load custom persisted jobs on mount
+  // Synchronize dynamic jobs and incoming applicants
+  const syncPipelineData = useCallback(() => {
+    // 1. Load Submitted Applications
+    let liveApplicants: any[] = [];
+    try {
+      const storedApps = localStorage.getItem("vic_applications");
+      if (storedApps) {
+        liveApplicants = JSON.parse(storedApps);
+      }
+    } catch (e) {}
+
+    const appIds = new Set(liveApplicants.map((a) => a.id));
+    const mergedApplicants = [...liveApplicants, ...initialBaseApplicants.filter((b) => !appIds.has(b.id))];
+    setApplicants(mergedApplicants);
+
+    // 2. Load Jobs and compute dynamic applicant counts
+    let currentJobsList = [...initialBaseJobs];
+    try {
+      const customJobsStr = localStorage.getItem("vic_custom_jobs");
+      if (customJobsStr) {
+        const customJobs = JSON.parse(customJobsStr);
+        if (Array.isArray(customJobs)) {
+          const customIds = new Set(customJobs.map((j) => j.id));
+          currentJobsList = [...customJobs, ...initialBaseJobs.filter((b) => !customIds.has(b.id))];
+        }
+      }
+    } catch (e) {}
+
+    // Calculate dynamic applicant count per job
+    const updatedJobsWithCounts = currentJobsList.map((job) => {
+      const matchCount = mergedApplicants.filter(
+        (app) => app.internshipId === job.id || app.role.toLowerCase() === job.title.toLowerCase()
+      ).length;
+      return {
+        ...job,
+        applicantsCount: Math.max(job.applicantsCount || 0, matchCount)
+      };
+    });
+
+    setJobs(updatedJobsWithCounts);
+  }, [initialBaseJobs, initialBaseApplicants]);
+
+  // Load Persisted Data on Mount & Bind Listeners
   useEffect(() => {
     const storedCompany = localStorage.getItem("company_data");
     if (storedCompany) {
       try {
         const parsed = JSON.parse(storedCompany);
-        if (parsed.companyName) setCompanyName(parsed.companyName);
-        if (parsed.email) setCompanyEmail(parsed.email);
+        setCompanyProfile((prev) => ({
+          ...prev,
+          companyName: parsed.companyName || prev.companyName,
+          email: parsed.email || prev.email,
+          website: parsed.website || prev.website,
+          location: parsed.location || prev.location,
+          registrationNumber: parsed.registrationNumber || prev.registrationNumber,
+          description: parsed.description || prev.description
+        }));
       } catch (e) {}
     }
 
-    const customJobsStr = localStorage.getItem("vic_custom_jobs");
-    if (customJobsStr) {
-      try {
-        const customJobs = JSON.parse(customJobsStr);
-        if (Array.isArray(customJobs) && customJobs.length > 0) {
-          setJobs([...customJobs, ...initialJobs]);
-        }
-      } catch (e) {}
-    }
-  }, []);
+    syncPipelineData();
 
-  // Filtered lists based on search query
+    // Listen for real-time application submissions
+    const handleApplicationSubmitted = (e: any) => {
+      syncPipelineData();
+      const applicantName = e?.detail?.name || "A candidate";
+      const roleName = e?.detail?.role || "an internship role";
+
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          text: `🎉 New application received from ${applicantName} for ${roleName}!`,
+          time: "Just now",
+          read: false
+        },
+        ...prev
+      ]);
+    };
+
+    window.addEventListener("vic_application_submitted", handleApplicationSubmitted);
+    window.addEventListener("storage", syncPipelineData);
+
+    return () => {
+      window.removeEventListener("vic_application_submitted", handleApplicationSubmitted);
+      window.removeEventListener("storage", syncPipelineData);
+    };
+  }, [syncPipelineData]);
+
+  // Save Profile Handler
+  const handleSaveCompanyProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem("company_data", JSON.stringify(companyProfile));
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 3000);
+  };
+
+  // Schedule Interview Submission Handler
+  const handleScheduleInterviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCandidate) return;
+
+    const newInterview = {
+      id: `intv-${Date.now()}`,
+      candidateName: selectedCandidate.name,
+      role: selectedCandidate.role,
+      roundName: interviewForm.roundName,
+      time: `${interviewForm.date} • ${interviewForm.time}`,
+      meetingUrl: interviewForm.meetingUrl,
+      status: "SCHEDULED"
+    };
+
+    setInterviews([newInterview, ...interviews]);
+
+    // Update applicant status to INTERVIEWING
+    setApplicants((prev) =>
+      prev.map((app) => (app.id === selectedCandidate.id ? { ...app, status: "INTERVIEWING" } : app))
+    );
+
+    // Persist updated application status
+    try {
+      const storedApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+      const updatedStored = storedApps.map((a: any) =>
+        a.id === selectedCandidate.id ? { ...a, status: "INTERVIEWING" } : a
+      );
+      localStorage.setItem("vic_applications", JSON.stringify(updatedStored));
+    } catch (e) {}
+
+    setIsScheduleModalOpen(false);
+    setSelectedCandidate(null);
+    setActiveTab("interviews");
+  };
+
+  // Filtered lists based on search
   const filteredJobs = useMemo(() => {
     if (!searchQuery.trim()) return jobs;
     const q = searchQuery.toLowerCase();
@@ -190,7 +329,7 @@ export default function CompanyDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // Real-time Post Role Handler
+  // Post Role Handler
   const handlePostRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPosting(true);
@@ -227,7 +366,7 @@ export default function CompanyDashboard() {
       const createdJob = {
         id: `job-${Date.now()}`,
         title: formData.title,
-        company: companyName,
+        company: companyProfile.companyName,
         mode: formattedMode,
         location: formData.location,
         stipend: `₹${Number(formData.stipend).toLocaleString()} / mo`,
@@ -238,14 +377,11 @@ export default function CompanyDashboard() {
         skills: skillList
       };
 
-      // Update Local State & Persist Pipeline
       const existingCustom = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
       const updatedCustom = [createdJob, ...existingCustom];
       localStorage.setItem("vic_custom_jobs", JSON.stringify(updatedCustom));
 
-      // Trigger cross-component real-time pipeline event
       window.dispatchEvent(new Event("vic_job_posted"));
-
       setJobs([createdJob, ...jobs]);
 
       setNotifications([
@@ -275,6 +411,14 @@ export default function CompanyDashboard() {
       setIsPosting(false);
     }
   };
+
+  const companyInitials = useMemo(() => {
+    if (!companyProfile.companyName) return "CO";
+    const parts = companyProfile.companyName.trim().split(" ");
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : companyProfile.companyName.substring(0, 2).toUpperCase();
+  }, [companyProfile.companyName]);
 
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
@@ -322,13 +466,17 @@ export default function CompanyDashboard() {
             </button>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between">
+          {/* Real-time Company Badge */}
+          <div
+            onClick={() => setActiveTab("profile")}
+            className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between cursor-pointer hover:border-[#202960]/30 transition"
+          >
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold flex items-center justify-center text-xs shadow-sm">
-                {companyName.charAt(0)}
+                {companyInitials}
               </div>
-              <div>
-                <div className="font-bold text-xs text-[#1E1B4B] capitalize">{companyName}</div>
+              <div className="text-left">
+                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">{companyProfile.companyName}</div>
                 <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                   ● Verified Partner
                 </div>
@@ -348,6 +496,7 @@ export default function CompanyDashboard() {
             >
               <Building2 className="w-4 h-4" /> Overview
             </button>
+
             <button
               onClick={() => { setActiveTab("jobs"); setMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
@@ -356,8 +505,9 @@ export default function CompanyDashboard() {
                   : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
               }`}
             >
-              <Briefcase className="w-4 h-4" /> Job Postings
+              <Briefcase className="w-4 h-4" /> Job Postings ({jobs.length})
             </button>
+
             <button
               onClick={() => { setActiveTab("applications"); setMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
@@ -366,8 +516,9 @@ export default function CompanyDashboard() {
                   : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
               }`}
             >
-              <Users className="w-4 h-4" /> Applicants
+              <Users className="w-4 h-4" /> Applicants ({applicants.length})
             </button>
+
             <button
               onClick={() => { setActiveTab("interviews"); setMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
@@ -376,22 +527,46 @@ export default function CompanyDashboard() {
                   : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
               }`}
             >
-              <Video className="w-4 h-4" /> Scheduled Rounds
+              <Video className="w-4 h-4" /> Scheduled Rounds ({interviews.length})
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("profile"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
+                activeTab === "profile"
+                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
+                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              }`}
+            >
+              <FileCheck className="w-4 h-4" /> Organization Profile
             </button>
           </nav>
         </div>
 
+        {/* Real-time Dynamic Footer Card */}
         <div className="pt-4 border-t border-[#3B3588]/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#EDF0FF] text-[#202960] font-bold text-xs flex items-center justify-center">
-              TS
+            <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold text-xs flex items-center justify-center shadow-sm">
+              {companyInitials}
             </div>
-            <div>
-              <div className="text-xs font-bold text-[#1E1B4B]">Recruiter Admin</div>
-              <div className="text-[10px] text-slate-400 truncate max-w-[110px]">{companyEmail}</div>
+            <div className="text-left">
+              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]" title={companyProfile.companyName}>
+                {companyProfile.companyName}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={companyProfile.email}>
+                {companyProfile.email}
+              </div>
             </div>
           </div>
-          <Link href="/" className="p-2 text-slate-400 hover:text-red-600 transition" title="Logout">
+          <Link
+            href="/"
+            onClick={() => {
+              localStorage.removeItem("company_token");
+              localStorage.removeItem("company_data");
+            }}
+            className="p-2 text-slate-400 hover:text-red-600 transition"
+            title="Logout"
+          >
             <LogOut className="w-4 h-4" />
           </Link>
         </div>
@@ -413,13 +588,13 @@ export default function CompanyDashboard() {
               <span className="hidden sm:inline">Company</span>
               <span className="hidden sm:inline">/</span>
               <span className="text-[#1E1B4B] capitalize">
-                {activeTab === "overview" ? "Overview" : activeTab === "jobs" ? "Job Postings" : activeTab === "applications" ? "Applicants" : "Scheduled Rounds"}
+                {activeTab === "overview" ? "Overview" : activeTab === "jobs" ? "Job Postings" : activeTab === "applications" ? "Applicants" : activeTab === "interviews" ? "Scheduled Rounds" : "Organization Profile"}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Search */}
+            {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
               <input
@@ -439,11 +614,11 @@ export default function CompanyDashboard() {
               )}
             </div>
 
-            {/* Notification Bell */}
+            {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] transition"
+                className="relative p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] transition cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
@@ -465,7 +640,7 @@ export default function CompanyDashboard() {
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllNotifsRead}
-                        className="text-[11px] font-bold text-[#202960] hover:underline flex items-center gap-1"
+                        className="text-[11px] font-bold text-[#202960] hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <CheckCheck className="w-3.5 h-3.5" /> Mark all read
                       </button>
@@ -489,7 +664,7 @@ export default function CompanyDashboard() {
               )}
             </div>
 
-            {/* Post New Role */}
+            {/* Post Role Button */}
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-xs shadow-md shadow-[#202960]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
@@ -501,6 +676,7 @@ export default function CompanyDashboard() {
           </div>
         </header>
 
+        {/* Dynamic Content Views */}
         <div className="p-4 sm:p-8 space-y-8 max-w-7xl">
           {searchQuery && (
             <div className="p-3 bg-[#EDF0FF] rounded-2xl border border-[#3B3588]/15 text-xs text-[#1E1B4B] flex items-center justify-between">
@@ -511,7 +687,7 @@ export default function CompanyDashboard() {
             </div>
           )}
 
-          {/* OVERVIEW TAB */}
+          {/* 1. OVERVIEW TAB */}
           {activeTab === "overview" && (
             <>
               <section className="bg-gradient-to-br from-[#EDF0FF] via-white to-[#F8F9FD] border border-[#3B3588]/10 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -520,7 +696,7 @@ export default function CompanyDashboard() {
                     <Sparkles className="w-3 h-3" /> ATS Recruitment Suite
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight">
-                    Welcome back, {companyName}.
+                    Welcome back, {companyProfile.companyName}.
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
                     Review candidate submissions, create active roles, and schedule technical rounds.
@@ -528,17 +704,14 @@ export default function CompanyDashboard() {
                 </div>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="px-5 py-3 rounded-full bg-[#202960] text-white font-bold text-xs hover:bg-[#2E2A72] transition shadow-md shadow-[#202960]/20"
+                  className="px-5 py-3 rounded-full bg-[#202960] text-white font-bold text-xs hover:bg-[#2E2A72] transition shadow-md shadow-[#202960]/20 cursor-pointer"
                 >
                   Create New Position
                 </button>
               </section>
 
               <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                <div
-                  onClick={() => setActiveTab("jobs")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
+                <div onClick={() => setActiveTab("jobs")} className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Roles</span>
                     <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
@@ -549,10 +722,7 @@ export default function CompanyDashboard() {
                   <div className="text-[11px] text-emerald-600 font-bold mt-1">● Live on Job Board</div>
                 </div>
 
-                <div
-                  onClick={() => setActiveTab("applications")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
+                <div onClick={() => setActiveTab("applications")} className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Applicants</span>
                     <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -560,13 +730,10 @@ export default function CompanyDashboard() {
                     </div>
                   </div>
                   <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">{applicants.length}</div>
-                  <div className="text-[11px] text-indigo-600 font-bold mt-1">Submissions received</div>
+                  <div className="text-[11px] text-indigo-600 font-bold mt-1">Real-time Submissions</div>
                 </div>
 
-                <div
-                  onClick={() => setActiveTab("interviews")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
+                <div onClick={() => setActiveTab("interviews")} className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Interviews</span>
                     <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -595,10 +762,7 @@ export default function CompanyDashboard() {
                     <h2 className="text-lg font-black text-[#1E1B4B]">Live Internship Postings</h2>
                     <p className="text-xs text-slate-500">Live positions open for student applications.</p>
                   </div>
-                  <button
-                    onClick={() => setActiveTab("jobs")}
-                    className="text-xs font-bold text-[#202960] hover:underline flex items-center gap-1"
-                  >
+                  <button onClick={() => setActiveTab("jobs")} className="text-xs font-bold text-[#202960] hover:underline flex items-center gap-1 cursor-pointer">
                     View All <ArrowUpRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -635,7 +799,127 @@ export default function CompanyDashboard() {
             </>
           )}
 
-          {/* JOBS TAB */}
+          {/* 2. ORGANIZATION PROFILE TAB */}
+          {activeTab === "profile" && (
+            <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8 max-w-4xl">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-xl font-black text-[#1E1B4B]">Organization Profile & Credentials</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Manage official company info, official website, recruiter contact, and verified bio visible to Superadmin.
+                  </p>
+                </div>
+                {profileSaved && (
+                  <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-full flex items-center gap-1.5 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Organization Profile Saved!
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveCompanyProfile} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Company Name *
+                    </label>
+                    <div className="relative">
+                      <Building2 className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={companyProfile.companyName}
+                        onChange={(e) => setCompanyProfile({ ...companyProfile, companyName: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Official Contact Email *
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="email"
+                        required
+                        value={companyProfile.email}
+                        onChange={(e) => setCompanyProfile({ ...companyProfile, email: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Official Website
+                    </label>
+                    <div className="relative">
+                      <Globe className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="url"
+                        value={companyProfile.website}
+                        onChange={(e) => setCompanyProfile({ ...companyProfile, website: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Headquarters Location
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={companyProfile.location}
+                        onChange={(e) => setCompanyProfile({ ...companyProfile, location: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                    Company Registration / CIN / GST
+                  </label>
+                  <input
+                    type="text"
+                    value={companyProfile.registrationNumber}
+                    onChange={(e) => setCompanyProfile({ ...companyProfile, registrationNumber: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                    About Organization
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={companyProfile.description}
+                    onChange={(e) => setCompanyProfile({ ...companyProfile, description: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] leading-relaxed text-slate-800 font-medium"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    className="px-6 py-3 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" /> Save Organization Profile
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {/* 3. JOB POSTINGS TAB (REAL-TIME APPLICANT COUNTS) */}
           {activeTab === "jobs" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -665,7 +949,7 @@ export default function CompanyDashboard() {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {job.skills?.map((s, i) => (
+                      {job.skills?.map((s: string, i: number) => (
                         <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
                           {s}
                         </span>
@@ -674,7 +958,9 @@ export default function CompanyDashboard() {
 
                     <div className="flex items-center justify-between pt-3 border-t border-[#3B3588]/10 text-xs">
                       <span className="font-black text-[#202960]">{job.stipend}</span>
-                      <span className="text-slate-500">{job.applicantsCount} Applicants</span>
+                      <span className="font-bold text-indigo-700 bg-[#EDF0FF] px-2.5 py-1 rounded-full text-[11px]">
+                        {job.applicantsCount || 0} Applicants
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -682,12 +968,12 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* APPLICANTS TAB */}
+          {/* 4. APPLICANTS TAB (REAL-TIME APPLICANT SUBMISSIONS) */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
-                <h2 className="text-xl font-black text-[#1E1B4B]">Candidate Submissions</h2>
-                <p className="text-xs text-slate-500 mt-1">Review student applications and take recruitment actions.</p>
+                <h2 className="text-xl font-black text-[#1E1B4B]">Candidate Submissions ({filteredApplicants.length})</h2>
+                <p className="text-xs text-slate-500 mt-1">Review student applications and take recruitment actions in real-time.</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -697,6 +983,7 @@ export default function CompanyDashboard() {
                       <th className="pb-3.5 font-bold">Candidate Name</th>
                       <th className="pb-3.5 font-bold">Applied Role</th>
                       <th className="pb-3.5 font-bold">Date Applied</th>
+                      <th className="pb-3.5 font-bold">Resume / Profile</th>
                       <th className="pb-3.5 font-bold">Status</th>
                       <th className="pb-3.5 font-bold text-right">Action</th>
                     </tr>
@@ -704,9 +991,22 @@ export default function CompanyDashboard() {
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {filteredApplicants.map((app) => (
                       <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
-                        <td className="py-4 font-bold text-[#1E1B4B] text-sm">{app.name}</td>
-                        <td className="py-4 text-slate-500">{app.role}</td>
+                        <td className="py-4">
+                          <div className="font-bold text-[#1E1B4B] text-sm">{app.name}</div>
+                          <div className="text-slate-400 text-[11px]">{app.email}</div>
+                        </td>
+                        <td className="py-4 text-slate-600 font-semibold">{app.role}</td>
                         <td className="py-4 text-slate-500">{app.appliedAt}</td>
+                        <td className="py-4">
+                          <a
+                            href={app.resumeUrl || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[#202960] font-bold text-xs hover:underline"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-indigo-600" /> View Resume
+                          </a>
+                        </td>
                         <td className="py-4">
                           <span
                             className={`px-3 py-1 rounded-full text-[10px] font-black border ${
@@ -722,8 +1022,11 @@ export default function CompanyDashboard() {
                         </td>
                         <td className="py-4 text-right">
                           <button
-                            onClick={() => setActiveTab("interviews")}
-                            className="px-3.5 py-1.5 bg-[#202960] text-white text-xs font-bold rounded-full hover:bg-[#2E2A72] transition"
+                            onClick={() => {
+                              setSelectedCandidate(app);
+                              setIsScheduleModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
                           >
                             Schedule Round
                           </button>
@@ -736,7 +1039,7 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* SCHEDULED ROUNDS TAB */}
+          {/* 5. SCHEDULED ROUNDS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -779,14 +1082,105 @@ export default function CompanyDashboard() {
         </div>
       </main>
 
+      {/* SCHEDULE INTERVIEW MODAL */}
+      {isScheduleModalOpen && selectedCandidate && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-md p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-black text-[#1E1B4B]">Schedule Interview</h3>
+                <p className="text-xs text-slate-500">Candidate: {selectedCandidate.name}</p>
+              </div>
+              <button
+                onClick={() => { setIsScheduleModalOpen(false); setSelectedCandidate(null); }}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleScheduleInterviewSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  Interview Round Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={interviewForm.roundName}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, roundName: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={interviewForm.date}
+                    onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                    Time *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={interviewForm.time}
+                    onChange={(e) => setInterviewForm({ ...interviewForm, time: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  Meeting Video URL (Google Meet / Zoom) *
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={interviewForm.meetingUrl}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, meetingUrl: e.target.value })}
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsScheduleModalOpen(false); setSelectedCandidate(null); }}
+                  className="px-4 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 cursor-pointer transition"
+                >
+                  Confirm & Dispatch
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* POST NEW ROLE MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5">
+          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-black text-[#1E1B4B]">Post New Internship Role</h3>
-                <p className="text-xs text-slate-500">Instant real-time update to student Explore page</p>
+                <p className="text-xs text-slate-500">Publish position to active students on Visionary Interns Club</p>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(false)}

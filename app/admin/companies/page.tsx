@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Building2,
   Search,
@@ -11,7 +11,10 @@ import {
   Eye,
   X,
   Globe,
-  Briefcase
+  Briefcase,
+  Mail,
+  MapPin,
+  FileCheck
 } from "lucide-react";
 
 export default function AdminCompaniesPage() {
@@ -24,33 +27,41 @@ export default function AdminCompaniesPage() {
       name: "Tenar Systems",
       website: "https://tenar.in",
       contactEmail: "admin@tenar.com",
+      location: "Bengaluru, Karnataka, India",
+      registrationNumber: "CIN-U72200KA2024PTC189",
       activeRoles: 2,
       status: "VERIFIED",
-      description: "Embedded IoT firmware, smart hardware sensors, and cloud telemetry systems."
+      description: "Pioneering embedded hardware architectures, smart sensor nodes, and real-time RTOS firmware telemetry."
     },
     {
       id: "comp-2",
       name: "Nexus Autonomous",
       website: "https://nexusauto.io",
       contactEmail: "recruiter@nexus.com",
+      location: "Bengaluru, Karnataka, India",
+      registrationNumber: "CIN-U74999KA2025PTC092",
       activeRoles: 1,
       status: "VERIFIED",
-      description: "Autonomous robotics, ROS2 software, and embedded real-time computing."
+      description: "Autonomous robotics, kinematic motion planners, and distributed ROS2 compute pipelines."
     },
     {
       id: "comp-3",
       name: "CloudScale Labs",
       website: "https://cloudscale.io",
       contactEmail: "hr@cloudscale.io",
+      location: "Remote / Bengaluru",
+      registrationNumber: "CIN-U72900DL2023PTC412",
       activeRoles: 1,
       status: "VERIFIED",
-      description: "Cloud computing infrastructure, serverless architectures, and Next.js platforms."
+      description: "Cloud computing infrastructure, serverless architectures, and modern Next.js platforms."
     },
     {
       id: "comp-4",
       name: "NextGen Robotics",
       website: "https://nextgenrobotics.org",
       contactEmail: "contact@nextgenrobotics.org",
+      location: "Bengaluru, India",
+      registrationNumber: "CIN-U80904KA2026PTC331",
       activeRoles: 0,
       status: "BLOCKED",
       description: "Experimental robotics projects and drone teleoperation."
@@ -69,11 +80,14 @@ export default function AdminCompaniesPage() {
     );
   };
 
-  const filtered = companies.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    return companies.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.contactEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.location.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [companies, searchQuery]);
 
   return (
     <div className="space-y-8">
@@ -84,10 +98,10 @@ export default function AdminCompaniesPage() {
             <Sparkles className="w-3 h-3" /> Recruiter Governance
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight mt-1">
-            Partner Companies & Recruiters
+            Partner Companies & Organizations
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl mt-1">
-            Review partner organizations, inspect recruiter details, and manage block/unblock status.
+            Review partner organizations, inspect registration details, and manage block/unblock permissions.
           </p>
         </div>
       </section>
@@ -100,7 +114,7 @@ export default function AdminCompaniesPage() {
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Search company, domain..."
+              placeholder="Search company, location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
@@ -115,7 +129,7 @@ export default function AdminCompaniesPage() {
                 <th className="pb-3.5 font-bold">Company</th>
                 <th className="pb-3.5 font-bold">Website</th>
                 <th className="pb-3.5 font-bold">Contact Email</th>
-                <th className="pb-3.5 font-bold">Active Roles</th>
+                <th className="pb-3.5 font-bold">Live Roles</th>
                 <th className="pb-3.5 font-bold">Status</th>
                 <th className="pb-3.5 font-bold text-right">Actions</th>
               </tr>
@@ -123,7 +137,10 @@ export default function AdminCompaniesPage() {
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filtered.map((comp) => (
                 <tr key={comp.id} className="hover:bg-[#F8F9FD]/60 transition">
-                  <td className="py-4 font-bold text-[#1E1B4B] text-sm">{comp.name}</td>
+                  <td className="py-4">
+                    <div className="font-bold text-[#1E1B4B] text-sm">{comp.name}</div>
+                    <div className="text-slate-400 text-[10px]">{comp.location}</div>
+                  </td>
                   <td className="py-4 text-slate-500">
                     <a
                       href={comp.website}
@@ -153,7 +170,7 @@ export default function AdminCompaniesPage() {
                         onClick={() => setSelectedCompany(comp)}
                         className="px-3 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition flex items-center gap-1 cursor-pointer"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Inspect
+                        <Eye className="w-3.5 h-3.5" /> Details
                       </button>
 
                       <button
@@ -214,17 +231,34 @@ export default function AdminCompaniesPage() {
             </div>
 
             <div className="space-y-3 text-xs bg-[#F8F9FD] p-4 rounded-2xl border border-slate-100">
-              <p className="text-slate-600 leading-relaxed">{selectedCompany.description}</p>
-              <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
+              <p className="text-slate-600 leading-relaxed font-medium">{selectedCompany.description}</p>
+              
+              <div className="pt-3 border-t border-slate-200/60 space-y-2">
                 <div className="flex items-center gap-2 text-slate-600">
                   <Globe className="w-4 h-4 text-slate-400" />
-                  <a href={selectedCompany.website} target="_blank" rel="noreferrer" className="text-[#202960] underline">
+                  <a href={selectedCompany.website} target="_blank" rel="noreferrer" className="text-[#202960] underline font-semibold">
                     {selectedCompany.website}
                   </a>
                 </div>
+
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Mail className="w-4 h-4 text-slate-400" />
+                  <span>Official Email: <strong>{selectedCompany.contactEmail}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2 text-slate-600">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                  <span>Headquarters: <strong>{selectedCompany.location}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2 text-slate-600">
+                  <FileCheck className="w-4 h-4 text-slate-400" />
+                  <span>Registration ID: <strong>{selectedCompany.registrationNumber}</strong></span>
+                </div>
+
                 <div className="flex items-center gap-2 text-slate-600">
                   <Briefcase className="w-4 h-4 text-slate-400" />
-                  <span>Active Job Board Postings: <strong>{selectedCompany.activeRoles} Roles</strong></span>
+                  <span>Active Job Postings: <strong>{selectedCompany.activeRoles} Roles</strong></span>
                 </div>
               </div>
             </div>
