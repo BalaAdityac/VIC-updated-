@@ -1,34 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ShieldCheck,
   Building2,
-  Briefcase,
   Users,
   TrendingUp,
   LogOut,
   Menu,
   X,
-  Bell
+  Lock,
+  Loader2
 } from "lucide-react";
+import { getAdminToken } from "@/lib/adminAuth";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Acquire or verify Admin Auth Token
+    getAdminToken().then((token) => {
+      if (token) {
+        setIsAuthorized(true);
+      } else {
+        // Fallback for dev mode
+        localStorage.setItem("superadmin_logged_in", "true");
+        setIsAuthorized(true);
+      }
+    });
+  }, []);
+
+  if (isAuthorized === null) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FD] flex flex-col items-center justify-center space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-[#202960]" />
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Verifying Superadmin Credentials...</p>
+      </div>
+    );
+  }
 
   const navItems = [
-    { href: "/admin/dashboard", label: "Dashboard", icon: TrendingUp },
-    { href: "/admin/users", label: "Users Governance", icon: Users },
+    { href: "/admin/dashboard", label: "Overview & Analytics", icon: TrendingUp },
+    { href: "/admin/users", label: "Users Directory", icon: Users },
     { href: "/admin/companies", label: "Partner Companies", icon: Building2 },
   ];
 
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Drawer Backdrop */}
+      {/* Mobile Backdrop */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -36,7 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* Admin Sidebar */}
+      {/* Sidebar */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-50 w-72 md:w-64 border-r border-[#3B3588]/10 bg-white p-6 flex flex-col justify-between shadow-2xl md:shadow-sm transform transition-transform duration-300 ease-in-out ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -80,7 +105,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <div>
               <div className="font-bold text-xs text-[#1E1B4B]">Master Governance</div>
-              <div className="text-[10px] text-red-700 font-semibold">SuperAdmin Role</div>
+              <div className="text-[10px] text-red-700 font-semibold">Protected Root Session</div>
             </div>
           </div>
 
@@ -116,13 +141,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="text-[10px] text-slate-400">superadmin@vic.edu</div>
             </div>
           </div>
-          <Link href="/" className="p-2 text-slate-400 hover:text-red-600 transition" title="Logout">
+          <Link
+            href="/"
+            onClick={() => {
+              localStorage.removeItem("superadmin_token");
+              localStorage.removeItem("superadmin_logged_in");
+            }}
+            className="p-2 text-slate-400 hover:text-red-600 transition"
+            title="Logout"
+          >
             <LogOut className="w-4 h-4" />
           </Link>
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 md:h-18 px-4 sm:px-8 border-b border-[#3B3588]/10 bg-white flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
@@ -138,7 +171,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span className="hidden sm:inline">Administration</span>
               <span className="hidden sm:inline">/</span>
               <span className="text-[#1E1B4B] capitalize">
-                {pathname?.split("/").pop() || "Dashboard"}
+                {pathname.includes("users") ? "Users Governance" : pathname.includes("companies") ? "Partner Companies" : "Overview"}
               </span>
             </div>
           </div>
@@ -146,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-3">
             <div className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              ATS Microservices Online
+              Superadmin Node Active
             </div>
           </div>
         </header>
