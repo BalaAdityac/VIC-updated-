@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -22,17 +22,17 @@ import {
   Loader2,
   AlertCircle,
   MapPin,
-  Calendar,
-  DollarSign,
   Building2,
-  CheckCircle2
+  CheckCircle2,
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 
 export default function StudentDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "applications" | "internships" | "interviews">("overview");
 
-  // Authentication & Profile State
+  // Authentication State
   const [studentToken, setStudentToken] = useState<string | null>(null);
   const [studentName, setStudentName] = useState("Bala Aditya C");
   const [studentEmail, setStudentEmail] = useState("student.aditya@example.com");
@@ -51,18 +51,19 @@ export default function StudentDashboard() {
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [applyFormData, setApplyFormData] = useState({
     resumeUrl: "https://storage.vic.edu/resumes/bala_aditya.pdf",
-    coverLetter: "I am passionate about building full-stack platforms and IoT systems.",
+    coverLetter: "Strong background in full-stack architecture, microservices, and IoT hardware.",
     githubUrl: "https://github.com/aditya",
     portfolioUrl: "https://aditya.dev"
   });
   const [applyStatusMessage, setApplyStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Search & Filter State
+  // Search & Loading
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Initial Mock Data (Preserved)
-  const initialBaseJobs = [
+  // Base Mockup Jobs
+  const initialBaseJobs = useMemo(() => [
     {
       id: "job-base-1",
       title: "Full Stack Engineering Intern",
@@ -72,7 +73,7 @@ export default function StudentDashboard() {
       stipend: 25000,
       durationMonths: 6,
       deadline: "Aug 30, 2026",
-      description: "Develop responsive Next.js web applications, Fastify microservices, and database models.",
+      description: "Develop responsive Next.js web applications, Fastify microservices, and PostgreSQL models with Prisma.",
       skills: ["React", "Next.js", "Node.js", "PostgreSQL"]
     },
     {
@@ -99,9 +100,10 @@ export default function StudentDashboard() {
       description: "Integrate LLM reasoning pipelines, evaluate context retrieval outputs, and build AI workflows.",
       skills: ["Python", "GenAI SDK", "FastAPI"]
     }
-  ];
+  ], []);
 
-  const initialApplications = [
+  // Base Mockup Applications
+  const initialApplications = useMemo(() => [
     {
       id: "app-101",
       role: "Full Stack Engineering Intern",
@@ -130,14 +132,16 @@ export default function StudentDashboard() {
       location: "Bengaluru • On-Site",
       interviews: []
     }
-  ];
+  ], []);
 
   const [availableJobs, setAvailableJobs] = useState<any[]>(initialBaseJobs);
   const [myApplications, setMyApplications] = useState<any[]>(initialApplications);
 
   // Sync Student Data & Backend APIs
-  const fetchBackendData = async (token: string) => {
-    setLoading(true);
+  const fetchBackendData = useCallback(async (token?: string | null) => {
+    const currentToken = token || studentToken || localStorage.getItem("student_token");
+    setIsRefreshing(true);
+
     try {
       // 1. Fetch Backend Active Internships
       const jobsRes = await fetch("http://127.0.0.1:3000/api/internships?status=ACTIVE").catch(() => null);
@@ -157,43 +161,44 @@ export default function StudentDashboard() {
             skills: Array.isArray(j.skills) ? j.skills : ["General Engineering"]
           }));
 
-          // Merge backend jobs with initialBaseJobs without duplicate IDs
           const backendIds = new Set(backendFormatted.map((b: any) => b.id));
-          const combined = [...backendFormatted, ...initialBaseJobs.filter((b) => !backendIds.has(b.id))];
-          setAvailableJobs(combined);
+          setAvailableJobs([...backendFormatted, ...initialBaseJobs.filter((b) => !backendIds.has(b.id))]);
         }
       }
 
-      // 2. Fetch Student My-Applications from Backend
-      const appsRes = await fetch("http://127.0.0.1:3000/api/applications/my-applications", {
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => null);
+      // 2. Fetch Student My-Applications
+      if (currentToken) {
+        const appsRes = await fetch("http://127.0.0.1:3000/api/applications/my-applications", {
+          headers: { Authorization: `Bearer ${currentToken}` }
+        }).catch(() => null);
 
-      if (appsRes && appsRes.ok) {
-        const appsData = await appsRes.json();
-        if (Array.isArray(appsData.applications) && appsData.applications.length > 0) {
-          const formattedApps = appsData.applications.map((a: any) => ({
-            id: a.id,
-            internshipId: a.internshipId,
-            role: a.internship?.title || "Engineering Intern",
-            company: a.internship?.company?.companyName || "Partner Organization",
-            appliedDate: new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            stipend: a.internship?.stipend ? `₹${Number(a.internship.stipend).toLocaleString()} / mo` : "₹25,000 / mo",
-            status: a.status || "APPLIED",
-            location: `${a.internship?.location || "Bengaluru"} • ${a.internship?.mode || "HYBRID"}`,
-            interviews: a.interviews || []
-          }));
+        if (appsRes && appsRes.ok) {
+          const appsData = await appsRes.json();
+          if (Array.isArray(appsData.applications)) {
+            const formattedApps = appsData.applications.map((a: any) => ({
+              id: a.id,
+              internshipId: a.internshipId,
+              role: a.internship?.title || "Engineering Intern",
+              company: a.internship?.company?.companyName || "Partner Organization",
+              appliedDate: new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              stipend: a.internship?.stipend ? `₹${Number(a.internship.stipend).toLocaleString()} / mo` : "₹25,000 / mo",
+              status: a.status || "APPLIED",
+              location: `${a.internship?.location || "Bengaluru"} • ${a.internship?.mode || "HYBRID"}`,
+              interviews: a.interviews || []
+            }));
 
-          const appIds = new Set(formattedApps.map((a: any) => a.id));
-          setMyApplications([...formattedApps, ...initialApplications.filter((m) => !appIds.has(m.id))]);
+            const appIds = new Set(formattedApps.map((a: any) => a.id));
+            setMyApplications([...formattedApps, ...initialApplications.filter((m) => !appIds.has(m.id))]);
+          }
         }
       }
     } catch (e) {
-      // Fallback cleanly on error
+      // Fallback cleanly
     } finally {
+      setIsRefreshing(false);
       setLoading(false);
     }
-  };
+  }, [initialBaseJobs, initialApplications, studentToken]);
 
   useEffect(() => {
     const storedStudent = localStorage.getItem("student_data");
@@ -211,7 +216,6 @@ export default function StudentDashboard() {
       setStudentToken(storedToken);
       fetchBackendData(storedToken);
     } else {
-      // Generate dev token automatically if none exists
       fetch("http://127.0.0.1:3000/api/student/dev-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,23 +232,10 @@ export default function StudentDashboard() {
         .catch(() => null);
     }
 
-    // Listen for custom live jobs posted from the company portal
-    const handleJobPosted = () => {
-      const customJobsStr = localStorage.getItem("vic_custom_jobs");
-      if (customJobsStr) {
-        try {
-          const customJobs = JSON.parse(customJobsStr);
-          if (Array.isArray(customJobs)) {
-            const customIds = new Set(customJobs.map((j) => j.id));
-            setAvailableJobs((prev) => [...customJobs, ...prev.filter((p) => !customIds.has(p.id))]);
-          }
-        } catch (e) {}
-      }
-    };
-
+    const handleJobPosted = () => fetchBackendData();
     window.addEventListener("vic_job_posted", handleJobPosted);
     return () => window.removeEventListener("vic_job_posted", handleJobPosted);
-  }, []);
+  }, [fetchBackendData, studentEmail]);
 
   // Filtered Job Openings
   const filteredJobs = useMemo(() => {
@@ -270,8 +261,8 @@ export default function StudentDashboard() {
             role: app.role,
             company: app.company,
             round: intv.roundName || `Round ${intv.roundNumber || 1}`,
-            date: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Aug 19, 2026",
-            time: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "2:00 PM IST",
+            date: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Upcoming",
+            time: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "Scheduled",
             meetUrl: intv.meetingUrl || "https://meet.google.com/vic-student-room",
             status: intv.status || "SCHEDULED"
           });
@@ -287,14 +278,13 @@ export default function StudentDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // Submit Application with Duplicate Check (Deliverable 3 & 4)
+  // Submit Application with Duplicate Check
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedJob) return;
     setIsApplying(true);
     setApplyStatusMessage(null);
 
-    // Check if already applied locally
     const alreadyApplied = myApplications.some(
       (a) => a.internshipId === selectedJob.id || a.role.toLowerCase() === selectedJob.title.toLowerCase()
     );
@@ -302,7 +292,7 @@ export default function StudentDashboard() {
     if (alreadyApplied) {
       setApplyStatusMessage({
         type: "error",
-        text: "You have already applied for this position. Duplicate submissions are not allowed."
+        text: "You have already applied for this position. Duplicate applications are rejected."
       });
       setIsApplying(false);
       return;
@@ -333,7 +323,6 @@ export default function StudentDashboard() {
         if (!res.ok) throw new Error(data.message || "Failed to submit application");
       }
 
-      // Prepend to live applications list
       const newApp = {
         id: `app-${Date.now()}`,
         internshipId: selectedJob.id,
@@ -370,7 +359,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Backdrop */}
+      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -490,7 +479,7 @@ export default function StudentDashboard() {
         </div>
       </aside>
 
-      {/* Main Header & Body */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-16 md:h-18 px-4 sm:px-8 border-b border-[#3B3588]/10 bg-white flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
@@ -509,7 +498,16 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <button
+              onClick={() => fetchBackendData()}
+              disabled={isRefreshing}
+              className="p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] transition cursor-pointer"
+              title="Sync Latest Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </button>
+
             {/* Notifications Dropdown */}
             <div className="relative">
               <button
@@ -528,7 +526,7 @@ export default function StudentDashboard() {
                 <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-[#3B3588]/15 rounded-3xl shadow-2xl p-4 z-50">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#1E1B4B]">Notifications</span>
+                      <span className="font-bold text-sm text-[#1E1B4B]">Your Notifications</span>
                       {unreadCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-[#EDF0FF] text-[#202960] text-[10px] font-black">
                           {unreadCount} new
@@ -571,7 +569,7 @@ export default function StudentDashboard() {
           </div>
         </header>
 
-        {/* Dashboard Views */}
+        {/* Dynamic Views */}
         <div className="p-4 sm:p-8 space-y-8 max-w-7xl">
           {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
@@ -596,7 +594,7 @@ export default function StudentDashboard() {
                 </button>
               </section>
 
-              {/* Stats Cards */}
+              {/* Metric Cards */}
               <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                 <div onClick={() => setActiveTab("applications")} className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer">
                   <div className="flex items-center justify-between text-slate-400 mb-2">
@@ -627,8 +625,10 @@ export default function StudentDashboard() {
                       <Award className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">1</div>
-                  <div className="text-[11px] text-purple-600 font-bold mt-1">CloudScale Labs</div>
+                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">
+                    {myApplications.filter((a) => a.status === "OFFERED" || a.status === "ACCEPTED").length || 1}
+                  </div>
+                  <div className="text-[11px] text-purple-600 font-bold mt-1">Verified Selected</div>
                 </div>
 
                 <div onClick={() => setActiveTab("internships")} className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer">
@@ -643,7 +643,7 @@ export default function StudentDashboard() {
                 </div>
               </section>
 
-              {/* Applications Pipeline Table */}
+              {/* Live Applications Table */}
               <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <div>
@@ -675,8 +675,9 @@ export default function StudentDashboard() {
                           <td className="py-4 font-bold text-[#202960]">{app.stipend}</td>
                           <td className="py-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                              app.status === "OFFERED" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                              app.status === "INTERVIEWING" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                              app.status === "OFFERED" || app.status === "ACCEPTED" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                              app.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                              app.status === "INTERVIEWING" || app.status === "SHORTLISTED" ? "bg-amber-50 text-amber-700 border-amber-200" :
                               "bg-indigo-50 text-indigo-700 border-indigo-200"
                             }`}>
                               {app.status}
@@ -691,7 +692,7 @@ export default function StudentDashboard() {
             </>
           )}
 
-          {/* MY APPLICATIONS TAB (Deliverable 5 & 6) */}
+          {/* MY APPLICATIONS TAB */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -701,7 +702,7 @@ export default function StudentDashboard() {
 
               {myApplications.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
-                  No applications submitted yet. Browse open positions below to apply!
+                  No applications submitted yet. Browse open positions to apply!
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -713,8 +714,9 @@ export default function StudentDashboard() {
                           <p className="text-xs text-slate-500 mt-0.5">{app.company} • {app.location}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                          app.status === "OFFERED" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                          app.status === "INTERVIEWING" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                          app.status === "OFFERED" || app.status === "ACCEPTED" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                          app.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                          app.status === "INTERVIEWING" || app.status === "SHORTLISTED" ? "bg-amber-50 text-amber-700 border-amber-200" :
                           "bg-indigo-50 text-indigo-700 border-indigo-200"
                         }`}>
                           {app.status}
@@ -752,7 +754,7 @@ export default function StudentDashboard() {
             </section>
           )}
 
-          {/* EXPLORE INTERNSHIPS TAB (Deliverable 1, 2, 3 & 4) */}
+          {/* EXPLORE INTERNSHIPS TAB */}
           {activeTab === "internships" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -843,7 +845,7 @@ export default function StudentDashboard() {
             </section>
           )}
 
-          {/* SCHEDULED INTERVIEWS TAB (Deliverable 7 & 8) */}
+          {/* SCHEDULED INTERVIEWS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -875,7 +877,6 @@ export default function StudentDashboard() {
                         </p>
                       </div>
 
-                      {/* Attend Interview Action Button */}
                       <div>
                         <a
                           href={intv.meetUrl}
@@ -895,7 +896,7 @@ export default function StudentDashboard() {
         </div>
       </main>
 
-      {/* INTERNSHIP DETAILS & APPLY MODAL (Deliverable 2, 3 & 4) */}
+      {/* INTERNSHIP DETAILS & APPLY MODAL */}
       {applyModalOpen && selectedJob && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
@@ -915,7 +916,6 @@ export default function StudentDashboard() {
               </button>
             </div>
 
-            {/* Description & Specs */}
             <div className="space-y-3 text-xs text-slate-600 bg-[#F8F9FD] p-4 rounded-2xl border border-slate-100">
               <p className="leading-relaxed">{selectedJob.description}</p>
               <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 font-semibold">
@@ -939,7 +939,6 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {/* Application Input Form */}
             <form onSubmit={handleApplySubmit} className="space-y-3.5">
               <div>
                 <label className="block text-[11px] font-bold text-[#1E1B4B] uppercase tracking-wider mb-1">
