@@ -42,7 +42,7 @@ export default function Navbar() {
             />
           </div>
 
-          <span className="text-lg sm:text-xl font-black text-[#1E1B4B] tracking-tight uppercase">
+          <span className="text-lg sm:text-l font-black text-[#1E1B4B] tracking-tight uppercase">
             Visionary Interns Club
           </span>
         </Link>

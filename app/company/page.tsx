@@ -23,7 +23,6 @@ import {
   Loader2,
   CheckCheck
 } from "lucide-react";
-import logoImg from "../../public/logo.jpg";
 
 export default function CompanyDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,8 +47,8 @@ export default function CompanyDashboard() {
   const [companyName, setCompanyName] = useState("Tenar");
   const [companyEmail, setCompanyEmail] = useState("admin@tenar.com");
 
-  // Job Postings State
-  const [jobs, setJobs] = useState([
+  // Mockup base jobs
+  const initialJobs = [
     {
       id: "job-1",
       title: "Full Stack Engineering Intern",
@@ -72,9 +71,11 @@ export default function CompanyDashboard() {
       postedAt: "5 days ago",
       skills: ["C++", "FreeRTOS", "Sensors"]
     }
-  ]);
+  ];
 
-  // Applicants State
+  const [jobs, setJobs] = useState(initialJobs);
+
+  // Applicants Mockup Data
   const [applicants, setApplicants] = useState([
     {
       id: "app-1",
@@ -105,7 +106,7 @@ export default function CompanyDashboard() {
     }
   ]);
 
-  // Scheduled Interviews State
+  // Scheduled Interviews Mockup Data
   const [interviews, setInterviews] = useState([
     {
       id: "intv-1",
@@ -138,13 +139,24 @@ export default function CompanyDashboard() {
     description: ""
   });
 
+  // Load custom persisted jobs on mount
   useEffect(() => {
-    const stored = localStorage.getItem("company_data");
-    if (stored) {
+    const storedCompany = localStorage.getItem("company_data");
+    if (storedCompany) {
       try {
-        const parsed = JSON.parse(stored);
+        const parsed = JSON.parse(storedCompany);
         if (parsed.companyName) setCompanyName(parsed.companyName);
         if (parsed.email) setCompanyEmail(parsed.email);
+      } catch (e) {}
+    }
+
+    const customJobsStr = localStorage.getItem("vic_custom_jobs");
+    if (customJobsStr) {
+      try {
+        const customJobs = JSON.parse(customJobsStr);
+        if (Array.isArray(customJobs) && customJobs.length > 0) {
+          setJobs([...customJobs, ...initialJobs]);
+        }
       } catch (e) {}
     }
   }, []);
@@ -178,7 +190,7 @@ export default function CompanyDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // Handle Post New Role Submission
+  // Real-time Post Role Handler
   const handlePostRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPosting(true);
@@ -191,7 +203,7 @@ export default function CompanyDashboard() {
 
     try {
       if (token) {
-        const res = await fetch("http://127.0.0.1:3000/api/internships", {
+        await fetch("http://127.0.0.1:3000/api/internships", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -207,28 +219,35 @@ export default function CompanyDashboard() {
             skills: skillList,
             status: "ACTIVE"
           })
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to publish internship to backend");
+        }).catch(() => null);
       }
 
-      // Add newly created role to live dashboard state
+      const formattedMode = formData.mode === "HYBRID" ? "Hybrid" : formData.mode === "REMOTE" ? "Remote" : "On-Site";
+
       const createdJob = {
         id: `job-${Date.now()}`,
         title: formData.title,
-        mode: formData.mode === "HYBRID" ? "Hybrid" : formData.mode === "REMOTE" ? "Remote" : "On-Site",
+        company: companyName,
+        mode: formattedMode,
         location: formData.location,
         stipend: `₹${Number(formData.stipend).toLocaleString()} / mo`,
         applicantsCount: 0,
         status: "ACTIVE",
         postedAt: "Just now",
+        deadline: "Open until filled",
         skills: skillList
       };
 
+      // Update Local State & Persist Pipeline
+      const existingCustom = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
+      const updatedCustom = [createdJob, ...existingCustom];
+      localStorage.setItem("vic_custom_jobs", JSON.stringify(updatedCustom));
+
+      // Trigger cross-component real-time pipeline event
+      window.dispatchEvent(new Event("vic_job_posted"));
+
       setJobs([createdJob, ...jobs]);
 
-      // Add notification for new posting
       setNotifications([
         {
           id: Date.now(),
@@ -239,7 +258,6 @@ export default function CompanyDashboard() {
         ...notifications
       ]);
 
-      // Reset Form & Close
       setFormData({
         title: "",
         mode: "HYBRID",
@@ -260,7 +278,7 @@ export default function CompanyDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Backdrop */}
+      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -279,7 +297,7 @@ export default function CompanyDashboard() {
             <Link href="/" className="flex items-center gap-3 group">
               <div className="relative w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center bg-white border border-[#3B3588]/10 shadow-sm transition-transform group-hover:scale-105">
                 <Image
-                  src={logoImg}
+                  src="/logo.jpg"
                   alt="Visionary Interns Club Logo"
                   width={40}
                   height={40}
@@ -379,9 +397,8 @@ export default function CompanyDashboard() {
         </div>
       </aside>
 
-      {/* Main Window */}
+      {/* Main Header & Body */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Header Bar */}
         <header className="h-16 md:h-18 px-4 sm:px-8 border-b border-[#3B3588]/10 bg-white flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <button
@@ -401,9 +418,8 @@ export default function CompanyDashboard() {
             </div>
           </div>
 
-          {/* Interactive Actions (Search, Notifications, Post Role) */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Live Search Input */}
+            {/* Search */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
               <input
@@ -423,7 +439,7 @@ export default function CompanyDashboard() {
               )}
             </div>
 
-            {/* Notifications Dropdown Button */}
+            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -435,9 +451,8 @@ export default function CompanyDashboard() {
                 )}
               </button>
 
-              {/* Notification Popover Panel */}
               {isNotifOpen && (
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-[#3B3588]/15 rounded-3xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-[#3B3588]/15 rounded-3xl shadow-2xl p-4 z-50">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-[#1E1B4B]">Notifications</span>
@@ -466,7 +481,7 @@ export default function CompanyDashboard() {
                         }`}
                       >
                         <p className="line-clamp-2">{n.text}</p>
-                        <span className="text-[10px] text-slate-400 font-normal mt-1 block">{n.time}</span>
+                        <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
                       </div>
                     ))}
                   </div>
@@ -474,7 +489,7 @@ export default function CompanyDashboard() {
               )}
             </div>
 
-            {/* Post New Role Button */}
+            {/* Post New Role */}
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-xs shadow-md shadow-[#202960]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
@@ -486,24 +501,17 @@ export default function CompanyDashboard() {
           </div>
         </header>
 
-        {/* Dynamic Content */}
         <div className="p-4 sm:p-8 space-y-8 max-w-7xl">
-          {/* Active Search Filter Status Banner */}
           {searchQuery && (
             <div className="p-3 bg-[#EDF0FF] rounded-2xl border border-[#3B3588]/15 text-xs text-[#1E1B4B] flex items-center justify-between">
-              <span>
-                Filtering results for: <strong>&ldquo;{searchQuery}&rdquo;</strong>
-              </span>
-              <button
-                onClick={() => setSearchQuery("")}
-                className="font-bold text-[#202960] hover:underline text-xs"
-              >
+              <span>Filtering results for: <strong>&ldquo;{searchQuery}&rdquo;</strong></span>
+              <button onClick={() => setSearchQuery("")} className="font-bold text-[#202960] hover:underline text-xs">
                 Clear filter
               </button>
             </div>
           )}
 
-          {/* 1. OVERVIEW TAB */}
+          {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
             <>
               <section className="bg-gradient-to-br from-[#EDF0FF] via-white to-[#F8F9FD] border border-[#3B3588]/10 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -515,7 +523,7 @@ export default function CompanyDashboard() {
                     Welcome back, {companyName}.
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
-                    Review applications, publish internships, and schedule technical rounds.
+                    Review candidate submissions, create active roles, and schedule technical rounds.
                   </p>
                 </div>
                 <button
@@ -526,7 +534,6 @@ export default function CompanyDashboard() {
                 </button>
               </section>
 
-              {/* Metric Cards */}
               <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
                 <div
                   onClick={() => setActiveTab("jobs")}
@@ -582,12 +589,11 @@ export default function CompanyDashboard() {
                 </div>
               </section>
 
-              {/* Roles Table */}
               <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <div>
                     <h2 className="text-lg font-black text-[#1E1B4B]">Live Internship Postings</h2>
-                    <p className="text-xs text-slate-500">Live positions open for student application submissions.</p>
+                    <p className="text-xs text-slate-500">Live positions open for student applications.</p>
                   </div>
                   <button
                     onClick={() => setActiveTab("jobs")}
@@ -612,9 +618,7 @@ export default function CompanyDashboard() {
                       {filteredJobs.map((j) => (
                         <tr key={j.id} className="hover:bg-[#F8F9FD]/60 transition">
                           <td className="py-4 font-bold text-[#1E1B4B] text-sm">{j.title}</td>
-                          <td className="py-4 text-slate-500">
-                            {j.location} • {j.mode}
-                          </td>
+                          <td className="py-4 text-slate-500">{j.location} • {j.mode}</td>
                           <td className="py-4 font-bold text-[#202960]">{j.stipend}</td>
                           <td className="py-4 font-semibold text-slate-600">{j.applicantsCount} Candidates</td>
                           <td className="py-4">
@@ -631,13 +635,13 @@ export default function CompanyDashboard() {
             </>
           )}
 
-          {/* 2. JOB POSTINGS TAB */}
+          {/* JOBS TAB */}
           {activeTab === "jobs" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-black text-[#1E1B4B]">Job Postings Management</h2>
-                  <p className="text-xs text-slate-500 mt-1">Create, edit, and manage all your live and archived roles.</p>
+                  <p className="text-xs text-slate-500 mt-1">Create, edit, and view live pipeline roles.</p>
                 </div>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
@@ -653,9 +657,7 @@ export default function CompanyDashboard() {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {job.location} • {job.mode}
-                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">{job.location} • {job.mode}</p>
                       </div>
                       <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
                         {job.status}
@@ -663,7 +665,7 @@ export default function CompanyDashboard() {
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {job.skills.map((s, i) => (
+                      {job.skills?.map((s, i) => (
                         <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
                           {s}
                         </span>
@@ -680,7 +682,7 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* 3. APPLICANTS TAB */}
+          {/* APPLICANTS TAB */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -734,7 +736,7 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* 4. SCHEDULED ROUNDS TAB */}
+          {/* SCHEDULED ROUNDS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -780,11 +782,11 @@ export default function CompanyDashboard() {
       {/* POST NEW ROLE MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-black text-[#1E1B4B]">Post New Internship Role</h3>
-                <p className="text-xs text-slate-500">Publish position to active students on Visionary Interns Club</p>
+                <p className="text-xs text-slate-500">Instant real-time update to student Explore page</p>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
@@ -808,7 +810,7 @@ export default function CompanyDashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Full Stack Engineering Intern"
+                  placeholder="e.g. AI Systems Engineer Intern"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
