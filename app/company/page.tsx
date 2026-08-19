@@ -22,35 +22,27 @@ import {
   ExternalLink,
   Loader2,
   CheckCheck,
-  Globe,
-  Mail,
-  MapPin,
-  Save,
-  CheckCircle2,
-  FileCheck,
-  Calendar,
   FileText
 } from "lucide-react";
 
 export default function CompanyDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "applications" | "interviews" | "profile">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "applications" | "interviews">("overview");
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
 
   // Notifications State
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Bala Aditya submitted an application for Full Stack Intern", time: "10m ago", read: false },
-    { id: 2, text: "Interview confirmed with Disham N for IoT Systems round", time: "1h ago", read: false },
-    { id: 3, text: "Offer letter accepted by candidate Sanjay Kumar", time: "1d ago", read: true },
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Modal & Posting State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+
+  // Job-Specific View Applicants Modal State
+  const [selectedJobForApplicants, setSelectedJobForApplicants] = useState<any | null>(null);
 
   // Schedule Interview Modal State
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -62,100 +54,14 @@ export default function CompanyDashboard() {
     meetingUrl: "https://meet.google.com/vic-recruitment-room"
   });
 
-  // Dynamic Company Profile State
-  const [companyProfile, setCompanyProfile] = useState({
-    companyName: "Tenar Systems",
-    email: "admin@tenar.com",
-    website: "https://tenar.in",
-    location: "Bengaluru, Karnataka, India",
-    registrationNumber: "CIN-U72200KA2024PTC189",
-    description: "Pioneering embedded hardware architectures, smart sensor nodes, and real-time RTOS firmware telemetry."
-  });
+  // Logged-in Company Info
+  const [companyName, setCompanyName] = useState("Tenar Systems");
+  const [companyEmail, setCompanyEmail] = useState("admin@tenar.com");
 
-  const [profileSaved, setProfileSaved] = useState(false);
-
-  // Base Mockup Jobs
-  const initialBaseJobs = useMemo(() => [
-    {
-      id: "job-1",
-      title: "Full Stack Engineering Intern",
-      mode: "Hybrid",
-      location: "Bengaluru",
-      stipend: "₹25,000 / mo",
-      applicantsCount: 4,
-      status: "ACTIVE",
-      postedAt: "2 days ago",
-      skills: ["React", "Next.js", "Node.js"]
-    },
-    {
-      id: "job-2",
-      title: "IoT Systems & Firmware Intern",
-      mode: "On-Site",
-      location: "Bengaluru",
-      stipend: "₹30,000 / mo",
-      applicantsCount: 2,
-      status: "ACTIVE",
-      postedAt: "5 days ago",
-      skills: ["C++", "FreeRTOS", "Sensors"]
-    }
-  ], []);
-
-  const [jobs, setJobs] = useState<any[]>(initialBaseJobs);
-
-  // Base Mockup Applicants
-  const initialBaseApplicants = useMemo(() => [
-    {
-      id: "app-1",
-      name: "Bala Aditya C",
-      role: "Full Stack Engineering Intern",
-      email: "aditya@example.com",
-      status: "INTERVIEWING",
-      appliedAt: "Aug 16, 2026",
-      resumeUrl: "https://storage.vic.edu/resumes/aditya_resume.pdf"
-    },
-    {
-      id: "app-2",
-      name: "Disham N",
-      role: "IoT Systems & Firmware Intern",
-      email: "disham@example.com",
-      status: "APPLIED",
-      appliedAt: "Aug 15, 2026",
-      resumeUrl: "https://storage.vic.edu/resumes/disham_resume.pdf"
-    },
-    {
-      id: "app-3",
-      name: "Sanjay Kumar",
-      role: "Full Stack Engineering Intern",
-      email: "sanjay@example.com",
-      status: "OFFERED",
-      appliedAt: "Aug 14, 2026",
-      resumeUrl: "https://storage.vic.edu/resumes/sanjay_resume.pdf"
-    }
-  ], []);
-
-  const [applicants, setApplicants] = useState<any[]>(initialBaseApplicants);
-
-  // Base Mockup Interviews
-  const [interviews, setInterviews] = useState([
-    {
-      id: "intv-1",
-      candidateName: "Bala Aditya C",
-      role: "Full Stack Engineering Intern",
-      roundName: "Live Coding & Architecture",
-      time: "Aug 19, 2026 • 2:00 PM",
-      meetingUrl: "https://meet.google.com/vic-test-room",
-      status: "SCHEDULED"
-    },
-    {
-      id: "intv-2",
-      candidateName: "Disham N",
-      role: "IoT Systems & Firmware Intern",
-      roundName: "Embedded Hardware & RTOS Round",
-      time: "Aug 20, 2026 • 4:30 PM",
-      meetingUrl: "https://meet.google.com/vic-embedded-round",
-      status: "SCHEDULED"
-    }
-  ]);
+  // Real-time Data Arrays
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [applicants, setApplicants] = useState<any[]>([]);
+  const [interviews, setInterviews] = useState<any[]>([]);
 
   // Post Role Form State
   const [formData, setFormData] = useState({
@@ -170,7 +76,6 @@ export default function CompanyDashboard() {
 
   // Synchronize dynamic jobs and incoming applicants
   const syncPipelineData = useCallback(() => {
-    // 1. Load Submitted Applications
     let liveApplicants: any[] = [];
     try {
       const storedApps = localStorage.getItem("vic_applications");
@@ -178,59 +83,44 @@ export default function CompanyDashboard() {
         liveApplicants = JSON.parse(storedApps);
       }
     } catch (e) {}
+    setApplicants(liveApplicants);
 
-    const appIds = new Set(liveApplicants.map((a) => a.id));
-    const mergedApplicants = [...liveApplicants, ...initialBaseApplicants.filter((b) => !appIds.has(b.id))];
-    setApplicants(mergedApplicants);
-
-    // 2. Load Jobs and compute dynamic applicant counts
-    let currentJobsList = [...initialBaseJobs];
+    let currentJobsList: any[] = [];
     try {
       const customJobsStr = localStorage.getItem("vic_custom_jobs");
       if (customJobsStr) {
         const customJobs = JSON.parse(customJobsStr);
         if (Array.isArray(customJobs)) {
-          const customIds = new Set(customJobs.map((j) => j.id));
-          currentJobsList = [...customJobs, ...initialBaseJobs.filter((b) => !customIds.has(b.id))];
+          currentJobsList = customJobs;
         }
       }
     } catch (e) {}
 
-    // Calculate dynamic applicant count per job
     const updatedJobsWithCounts = currentJobsList.map((job) => {
-      const matchCount = mergedApplicants.filter(
-        (app) => app.internshipId === job.id || app.role.toLowerCase() === job.title.toLowerCase()
+      const matchCount = liveApplicants.filter(
+        (app) => app.internshipId === job.id || app.role?.toLowerCase() === job.title?.toLowerCase()
       ).length;
       return {
         ...job,
-        applicantsCount: Math.max(job.applicantsCount || 0, matchCount)
+        applicantsCount: matchCount
       };
     });
 
     setJobs(updatedJobsWithCounts);
-  }, [initialBaseJobs, initialBaseApplicants]);
+  }, []);
 
-  // Load Persisted Data on Mount & Bind Listeners
   useEffect(() => {
     const storedCompany = localStorage.getItem("company_data");
     if (storedCompany) {
       try {
         const parsed = JSON.parse(storedCompany);
-        setCompanyProfile((prev) => ({
-          ...prev,
-          companyName: parsed.companyName || prev.companyName,
-          email: parsed.email || prev.email,
-          website: parsed.website || prev.website,
-          location: parsed.location || prev.location,
-          registrationNumber: parsed.registrationNumber || prev.registrationNumber,
-          description: parsed.description || prev.description
-        }));
+        if (parsed.companyName) setCompanyName(parsed.companyName);
+        if (parsed.email) setCompanyEmail(parsed.email);
       } catch (e) {}
     }
 
     syncPipelineData();
 
-    // Listen for real-time application submissions
     const handleApplicationSubmitted = (e: any) => {
       syncPipelineData();
       const applicantName = e?.detail?.name || "A candidate";
@@ -239,7 +129,7 @@ export default function CompanyDashboard() {
       setNotifications((prev) => [
         {
           id: Date.now(),
-          text: `🎉 New application received from ${applicantName} for ${roleName}!`,
+          text: `New application received from ${applicantName} for ${roleName}!`,
           time: "Just now",
           read: false
         },
@@ -256,15 +146,6 @@ export default function CompanyDashboard() {
     };
   }, [syncPipelineData]);
 
-  // Save Profile Handler
-  const handleSaveCompanyProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem("company_data", JSON.stringify(companyProfile));
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 3000);
-  };
-
-  // Schedule Interview Submission Handler
   const handleScheduleInterviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCandidate) return;
@@ -279,14 +160,12 @@ export default function CompanyDashboard() {
       status: "SCHEDULED"
     };
 
-    setInterviews([newInterview, ...interviews]);
+    setInterviews((prev) => [newInterview, ...prev]);
 
-    // Update applicant status to INTERVIEWING
     setApplicants((prev) =>
       prev.map((app) => (app.id === selectedCandidate.id ? { ...app, status: "INTERVIEWING" } : app))
     );
 
-    // Persist updated application status
     try {
       const storedApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
       const updatedStored = storedApps.map((a: any) =>
@@ -297,18 +176,18 @@ export default function CompanyDashboard() {
 
     setIsScheduleModalOpen(false);
     setSelectedCandidate(null);
+    setSelectedJobForApplicants(null);
     setActiveTab("interviews");
   };
 
-  // Filtered lists based on search
   const filteredJobs = useMemo(() => {
     if (!searchQuery.trim()) return jobs;
     const q = searchQuery.toLowerCase();
     return jobs.filter(
       (j) =>
-        j.title.toLowerCase().includes(q) ||
-        j.location.toLowerCase().includes(q) ||
-        j.mode.toLowerCase().includes(q)
+        j.title?.toLowerCase().includes(q) ||
+        j.location?.toLowerCase().includes(q) ||
+        j.mode?.toLowerCase().includes(q)
     );
   }, [jobs, searchQuery]);
 
@@ -317,11 +196,21 @@ export default function CompanyDashboard() {
     const q = searchQuery.toLowerCase();
     return applicants.filter(
       (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.role.toLowerCase().includes(q) ||
-        a.email.toLowerCase().includes(q)
+        a.name?.toLowerCase().includes(q) ||
+        a.role?.toLowerCase().includes(q) ||
+        a.email?.toLowerCase().includes(q)
     );
   }, [applicants, searchQuery]);
+
+  // Specific candidate list for the opened job modal
+  const jobSpecificApplicants = useMemo(() => {
+    if (!selectedJobForApplicants) return [];
+    return applicants.filter(
+      (app) =>
+        app.internshipId === selectedJobForApplicants.id ||
+        app.role?.toLowerCase() === selectedJobForApplicants.title?.toLowerCase()
+    );
+  }, [applicants, selectedJobForApplicants]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -329,7 +218,6 @@ export default function CompanyDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // Post Role Handler
   const handlePostRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPosting(true);
@@ -366,7 +254,7 @@ export default function CompanyDashboard() {
       const createdJob = {
         id: `job-${Date.now()}`,
         title: formData.title,
-        company: companyProfile.companyName,
+        company: companyName,
         mode: formattedMode,
         location: formData.location,
         stipend: `₹${Number(formData.stipend).toLocaleString()} / mo`,
@@ -413,16 +301,15 @@ export default function CompanyDashboard() {
   };
 
   const companyInitials = useMemo(() => {
-    if (!companyProfile.companyName) return "CO";
-    const parts = companyProfile.companyName.trim().split(" ");
+    if (!companyName) return "CO";
+    const parts = companyName.trim().split(" ");
     return parts.length >= 2
       ? (parts[0][0] + parts[1][0]).toUpperCase()
-      : companyProfile.companyName.substring(0, 2).toUpperCase();
-  }, [companyProfile.companyName]);
+      : companyName.substring(0, 2).toUpperCase();
+  }, [companyName]);
 
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -466,17 +353,13 @@ export default function CompanyDashboard() {
             </button>
           </div>
 
-          {/* Real-time Company Badge */}
-          <div
-            onClick={() => setActiveTab("profile")}
-            className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between cursor-pointer hover:border-[#202960]/30 transition"
-          >
+          <div className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold flex items-center justify-center text-xs shadow-sm">
                 {companyInitials}
               </div>
               <div className="text-left">
-                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">{companyProfile.companyName}</div>
+                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">{companyName}</div>
                 <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                   ● Verified Partner
                 </div>
@@ -529,32 +412,20 @@ export default function CompanyDashboard() {
             >
               <Video className="w-4 h-4" /> Scheduled Rounds ({interviews.length})
             </button>
-
-            <button
-              onClick={() => { setActiveTab("profile"); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "profile"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
-              }`}
-            >
-              <FileCheck className="w-4 h-4" /> Organization Profile
-            </button>
           </nav>
         </div>
 
-        {/* Real-time Dynamic Footer Card */}
         <div className="pt-4 border-t border-[#3B3588]/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold text-xs flex items-center justify-center shadow-sm">
               {companyInitials}
             </div>
             <div className="text-left">
-              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]" title={companyProfile.companyName}>
-                {companyProfile.companyName}
+              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]" title={companyName}>
+                {companyName}
               </div>
-              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={companyProfile.email}>
-                {companyProfile.email}
+              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={companyEmail}>
+                {companyEmail}
               </div>
             </div>
           </div>
@@ -588,13 +459,12 @@ export default function CompanyDashboard() {
               <span className="hidden sm:inline">Company</span>
               <span className="hidden sm:inline">/</span>
               <span className="text-[#1E1B4B] capitalize">
-                {activeTab === "overview" ? "Overview" : activeTab === "jobs" ? "Job Postings" : activeTab === "applications" ? "Applicants" : activeTab === "interviews" ? "Scheduled Rounds" : "Organization Profile"}
+                {activeTab === "overview" ? "Overview" : activeTab === "jobs" ? "Job Postings" : activeTab === "applications" ? "Applicants" : "Scheduled Rounds"}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
               <input
@@ -614,7 +484,6 @@ export default function CompanyDashboard() {
               )}
             </div>
 
-            {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
@@ -648,23 +517,28 @@ export default function CompanyDashboard() {
                   </div>
 
                   <div className="space-y-2 max-h-72 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`p-3 rounded-2xl text-xs transition ${
-                          n.read ? "bg-[#F8F9FD] text-slate-500" : "bg-[#EDF0FF]/60 text-slate-800 font-medium"
-                        }`}
-                      >
-                        <p className="line-clamp-2">{n.text}</p>
-                        <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
+                    {notifications.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs">
+                        No notifications yet.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-3 rounded-2xl text-xs transition ${
+                            n.read ? "bg-[#F8F9FD] text-slate-500" : "bg-[#EDF0FF]/60 text-slate-800 font-medium"
+                          }`}
+                        >
+                          <p className="line-clamp-2">{n.text}</p>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Post Role Button */}
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-xs shadow-md shadow-[#202960]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
@@ -696,7 +570,7 @@ export default function CompanyDashboard() {
                     <Sparkles className="w-3 h-3" /> ATS Recruitment Suite
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight">
-                    Welcome back, {companyProfile.companyName}.
+                    Welcome back, {companyName}.
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
                     Review candidate submissions, create active roles, and schedule technical rounds.
@@ -751,8 +625,10 @@ export default function CompanyDashboard() {
                       <ClipboardCheck className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">1</div>
-                  <div className="text-[11px] text-purple-600 font-bold mt-1">100% Accepted</div>
+                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">
+                    {applicants.filter((a) => a.status === "OFFERED" || a.status === "ACCEPTED").length}
+                  </div>
+                  <div className="text-[11px] text-purple-600 font-bold mt-1">Hired Candidates</div>
                 </div>
               </section>
 
@@ -768,164 +644,57 @@ export default function CompanyDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
-                      <tr>
-                        <th className="pb-3.5 font-bold">Role Title</th>
-                        <th className="pb-3.5 font-bold">Work Mode</th>
-                        <th className="pb-3.5 font-bold">Stipend</th>
-                        <th className="pb-3.5 font-bold">Submissions</th>
-                        <th className="pb-3.5 font-bold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {filteredJobs.map((j) => (
-                        <tr key={j.id} className="hover:bg-[#F8F9FD]/60 transition">
-                          <td className="py-4 font-bold text-[#1E1B4B] text-sm">{j.title}</td>
-                          <td className="py-4 text-slate-500">{j.location} • {j.mode}</td>
-                          <td className="py-4 font-bold text-[#202960]">{j.stipend}</td>
-                          <td className="py-4 font-semibold text-slate-600">{j.applicantsCount} Candidates</td>
-                          <td className="py-4">
-                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                              {j.status}
-                            </span>
-                          </td>
+                  {filteredJobs.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs">
+                      No internship roles posted yet. Click &ldquo;+ Post New Role&rdquo; to publish your first position.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                        <tr>
+                          <th className="pb-3.5 font-bold">Role Title</th>
+                          <th className="pb-3.5 font-bold">Work Mode</th>
+                          <th className="pb-3.5 font-bold">Stipend</th>
+                          <th className="pb-3.5 font-bold">Submissions</th>
+                          <th className="pb-3.5 font-bold">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {filteredJobs.map((j) => (
+                          <tr key={j.id} className="hover:bg-[#F8F9FD]/60 transition">
+                            <td className="py-4 font-bold text-[#1E1B4B] text-sm">{j.title}</td>
+                            <td className="py-4 text-slate-500">{j.location} • {j.mode}</td>
+                            <td className="py-4 font-bold text-[#202960]">{j.stipend}</td>
+                            <td className="py-4 font-semibold text-slate-600">
+                              <button
+                                onClick={() => setSelectedJobForApplicants(j)}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EDF0FF] hover:bg-[#202960] text-[#202960] hover:text-white font-bold text-xs transition cursor-pointer"
+                              >
+                                {j.applicantsCount} Applicants <ArrowUpRight className="w-3 h-3" />
+                              </button>
+                            </td>
+                            <td className="py-4">
+                              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
+                                {j.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </section>
             </>
           )}
 
-          {/* 2. ORGANIZATION PROFILE TAB */}
-          {activeTab === "profile" && (
-            <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8 max-w-4xl">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
-                <div>
-                  <h2 className="text-xl font-black text-[#1E1B4B]">Organization Profile & Credentials</h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Manage official company info, official website, recruiter contact, and verified bio visible to Superadmin.
-                  </p>
-                </div>
-                {profileSaved && (
-                  <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-full flex items-center gap-1.5 animate-in fade-in">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Organization Profile Saved!
-                  </div>
-                )}
-              </div>
-
-              <form onSubmit={handleSaveCompanyProfile} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Company Name *
-                    </label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        value={companyProfile.companyName}
-                        onChange={(e) => setCompanyProfile({ ...companyProfile, companyName: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Official Contact Email *
-                    </label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                      <input
-                        type="email"
-                        required
-                        value={companyProfile.email}
-                        onChange={(e) => setCompanyProfile({ ...companyProfile, email: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Official Website
-                    </label>
-                    <div className="relative">
-                      <Globe className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                      <input
-                        type="url"
-                        value={companyProfile.website}
-                        onChange={(e) => setCompanyProfile({ ...companyProfile, website: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Headquarters Location
-                    </label>
-                    <div className="relative">
-                      <MapPin className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={companyProfile.location}
-                        onChange={(e) => setCompanyProfile({ ...companyProfile, location: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 font-semibold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                    Company Registration / CIN / GST
-                  </label>
-                  <input
-                    type="text"
-                    value={companyProfile.registrationNumber}
-                    onChange={(e) => setCompanyProfile({ ...companyProfile, registrationNumber: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                    About Organization
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={companyProfile.description}
-                    onChange={(e) => setCompanyProfile({ ...companyProfile, description: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] leading-relaxed text-slate-800 font-medium"
-                  />
-                </div>
-
-                <div className="flex justify-end pt-4 border-t border-slate-100">
-                  <button
-                    type="submit"
-                    className="px-6 py-3 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 transition cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" /> Save Organization Profile
-                  </button>
-                </div>
-              </form>
-            </section>
-          )}
-
-          {/* 3. JOB POSTINGS TAB (REAL-TIME APPLICANT COUNTS) */}
+          {/* 2. JOB POSTINGS TAB (CLICKABLE APPLICANTS BUTTON) */}
           {activeTab === "jobs" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-black text-[#1E1B4B]">Job Postings Management</h2>
-                  <p className="text-xs text-slate-500 mt-1">Create, edit, and view live pipeline roles.</p>
+                  <p className="text-xs text-slate-500 mt-1">Create, edit, and click applicant buttons to inspect applicants for any role.</p>
                 </div>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
@@ -935,40 +704,54 @@ export default function CompanyDashboard() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredJobs.map((job) => (
-                  <div key={job.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">{job.location} • {job.mode}</p>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                        {job.status}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {job.skills?.map((s: string, i: number) => (
-                        <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
-                          {s}
+              {filteredJobs.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs">
+                  No job postings created yet. Click &ldquo;Create New Role&rdquo; to publish your first internship.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredJobs.map((job) => (
+                    <div key={job.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">{job.location} • {job.mode}</p>
+                        </div>
+                        <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
+                          {job.status}
                         </span>
-                      ))}
-                    </div>
+                      </div>
 
-                    <div className="flex items-center justify-between pt-3 border-t border-[#3B3588]/10 text-xs">
-                      <span className="font-black text-[#202960]">{job.stipend}</span>
-                      <span className="font-bold text-indigo-700 bg-[#EDF0FF] px-2.5 py-1 rounded-full text-[11px]">
-                        {job.applicantsCount || 0} Applicants
-                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {job.skills?.map((s: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-[#3B3588]/10 text-xs">
+                        <span className="font-black text-[#202960]">{job.stipend}</span>
+                        
+                        {/* Interactive Clickable Button to View Role Applicants */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedJobForApplicants(job)}
+                          className="font-bold text-[#202960] bg-[#EDF0FF] hover:bg-[#202960] hover:text-white px-3 py-1.5 rounded-full text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>{job.applicantsCount || 0} Applicants</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
-          {/* 4. APPLICANTS TAB (REAL-TIME APPLICANT SUBMISSIONS) */}
+          {/* 3. APPLICANTS TAB */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -977,69 +760,75 @@ export default function CompanyDashboard() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
-                    <tr>
-                      <th className="pb-3.5 font-bold">Candidate Name</th>
-                      <th className="pb-3.5 font-bold">Applied Role</th>
-                      <th className="pb-3.5 font-bold">Date Applied</th>
-                      <th className="pb-3.5 font-bold">Resume / Profile</th>
-                      <th className="pb-3.5 font-bold">Status</th>
-                      <th className="pb-3.5 font-bold text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredApplicants.map((app) => (
-                      <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
-                        <td className="py-4">
-                          <div className="font-bold text-[#1E1B4B] text-sm">{app.name}</div>
-                          <div className="text-slate-400 text-[11px]">{app.email}</div>
-                        </td>
-                        <td className="py-4 text-slate-600 font-semibold">{app.role}</td>
-                        <td className="py-4 text-slate-500">{app.appliedAt}</td>
-                        <td className="py-4">
-                          <a
-                            href={app.resumeUrl || "#"}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[#202960] font-bold text-xs hover:underline"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-indigo-600" /> View Resume
-                          </a>
-                        </td>
-                        <td className="py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                              app.status === "OFFERED"
-                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                : app.status === "INTERVIEWING"
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            }`}
-                          >
-                            {app.status}
-                          </span>
-                        </td>
-                        <td className="py-4 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedCandidate(app);
-                              setIsScheduleModalOpen(true);
-                            }}
-                            className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
-                          >
-                            Schedule Round
-                          </button>
-                        </td>
+                {filteredApplicants.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs">
+                    No candidate applications received yet. Applications will appear here automatically when students apply.
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs">
+                    <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                      <tr>
+                        <th className="pb-3.5 font-bold">Candidate Name</th>
+                        <th className="pb-3.5 font-bold">Applied Role</th>
+                        <th className="pb-3.5 font-bold">Date Applied</th>
+                        <th className="pb-3.5 font-bold">Resume / Profile</th>
+                        <th className="pb-3.5 font-bold">Status</th>
+                        <th className="pb-3.5 font-bold text-right">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {filteredApplicants.map((app) => (
+                        <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
+                          <td className="py-4">
+                            <div className="font-bold text-[#1E1B4B] text-sm">{app.name}</div>
+                            <div className="text-slate-400 text-[11px]">{app.email}</div>
+                          </td>
+                          <td className="py-4 text-slate-600 font-semibold">{app.role}</td>
+                          <td className="py-4 text-slate-500">{app.appliedAt || app.appliedDate}</td>
+                          <td className="py-4">
+                            <a
+                              href={app.resumeUrl || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[#202960] font-bold text-xs hover:underline"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-indigo-600" /> View Resume
+                            </a>
+                          </td>
+                          <td className="py-4">
+                            <span
+                              className={`px-3 py-1 rounded-full text-[10px] font-black border ${
+                                app.status === "OFFERED" || app.status === "ACCEPTED"
+                                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                                  : app.status === "INTERVIEWING"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              }`}
+                            >
+                              {app.status}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedCandidate(app);
+                                setIsScheduleModalOpen(true);
+                              }}
+                              className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
+                            >
+                              Schedule Round
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </section>
           )}
 
-          {/* 5. SCHEDULED ROUNDS TAB */}
+          {/* 4. SCHEDULED ROUNDS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -1047,40 +836,138 @@ export default function CompanyDashboard() {
                 <p className="text-xs text-slate-500 mt-1">Live interview schedules, meet links, and candidate evaluations.</p>
               </div>
 
-              <div className="space-y-4">
-                {interviews.map((intv) => (
-                  <div
-                    key={intv.id}
-                    className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] flex flex-col sm:flex-row justify-between sm:items-center gap-4"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-[#1E1B4B]">{intv.candidateName}</span>
-                        <span className="text-xs text-slate-400">• {intv.role}</span>
+              {interviews.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs">
+                  No interview rounds scheduled yet. Use the Schedule Round button in the Applicants tab to create meetings.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {interviews.map((intv) => (
+                    <div
+                      key={intv.id}
+                      className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] flex flex-col sm:flex-row justify-between sm:items-center gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-[#1E1B4B]">{intv.candidateName}</span>
+                          <span className="text-xs text-slate-400">• {intv.role}</span>
+                        </div>
+                        <p className="text-xs font-semibold text-[#202960]">{intv.roundName}</p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" /> {intv.time}
+                        </p>
                       </div>
-                      <p className="text-xs font-semibold text-[#202960]">{intv.roundName}</p>
-                      <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" /> {intv.time}
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={intv.meetingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full flex items-center gap-1.5 transition"
-                      >
-                        Join Room <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={intv.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full flex items-center gap-1.5 transition"
+                        >
+                          Join Room <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
         </div>
       </main>
+
+      {/* JOB-SPECIFIC APPLICANTS MODAL */}
+      {selectedJobForApplicants && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-2xl p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start pb-3 border-b border-slate-100">
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase">
+                  {selectedJobForApplicants.mode}
+                </span>
+                <h3 className="text-lg font-black text-[#1E1B4B] mt-1">
+                  Applicants for &ldquo;{selectedJobForApplicants.title}&rdquo;
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {jobSpecificApplicants.length} candidate(s) have submitted applications for this position.
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedJobForApplicants(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-80 space-y-3">
+              {jobSpecificApplicants.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  No applications received yet for this specific opening.
+                </div>
+              ) : (
+                jobSpecificApplicants.map((cand) => (
+                  <div
+                    key={cand.id}
+                    className="p-4 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] flex flex-col sm:flex-row justify-between sm:items-center gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="font-bold text-[#1E1B4B] text-sm">{cand.name}</div>
+                      <div className="text-slate-400 text-xs">{cand.email}</div>
+                      <div className="text-slate-500 text-[11px]">
+                        Applied: {cand.appliedAt || cand.appliedDate}
+                      </div>
+                      {cand.resumeUrl && (
+                        <a
+                          href={cand.resumeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[#202960] font-bold text-xs hover:underline mt-1"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-indigo-600" /> View Candidate Resume
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-black border ${
+                          cand.status === "OFFERED" || cand.status === "ACCEPTED"
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : cand.status === "INTERVIEWING"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                        }`}
+                      >
+                        {cand.status}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setSelectedCandidate(cand);
+                          setIsScheduleModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
+                      >
+                        Schedule Round
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedJobForApplicants(null)}
+                className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SCHEDULE INTERVIEW MODAL */}
       {isScheduleModalOpen && selectedCandidate && (

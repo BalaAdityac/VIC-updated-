@@ -1,79 +1,101 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Users,
   Search,
   Building2,
-  GraduationCap,
   Sparkles,
   Eye,
   X,
   FileText,
   Mail,
   Calendar,
-  CheckCircle2
+  Loader2
 } from "lucide-react";
+import { getAdminToken } from "@/lib/adminAuth";
 
 export default function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"ALL" | "STUDENT" | "RECRUITER">("ALL");
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [users] = useState([
-    {
-      id: "usr-1",
-      name: "Bala Aditya C",
-      email: "student.aditya@example.com",
-      role: "STUDENT",
-      department: "IoT & Full Stack Engineering",
-      status: "ACTIVE",
-      joinedAt: "Aug 10, 2026",
-      applicationsCount: 3,
-      recentApplication: "Full Stack Engineering Intern (Tech Innovations Corp)"
-    },
-    {
-      id: "usr-2",
-      name: "Disham N",
-      email: "disham@nexus.com",
-      role: "RECRUITER",
-      department: "Nexus Autonomous Systems",
-      status: "ACTIVE",
-      joinedAt: "Aug 12, 2026",
-      applicationsCount: 4,
-      recentApplication: "Robotics Lead Hiring"
-    },
-    {
-      id: "usr-3",
-      name: "Sanjay Kumar",
-      email: "sanjay@vic.edu",
-      role: "STUDENT",
-      department: "Computer Science & Engineering",
-      status: "ACTIVE",
-      joinedAt: "Aug 14, 2026",
-      applicationsCount: 1,
-      recentApplication: "AI Prompt Engineer (VIC Labs)"
-    },
-    {
-      id: "usr-4",
-      name: "Priya Sharma",
-      email: "priya@tenar.com",
-      role: "RECRUITER",
-      department: "Tenar Systems HR",
-      status: "ACTIVE",
-      joinedAt: "Aug 08, 2026",
-      applicationsCount: 2,
-      recentApplication: "IoT Firmware Internship Postings"
+  useEffect(() => {
+    async function loadUsers() {
+      setLoading(true);
+      try {
+        const token = await getAdminToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("http://127.0.0.1:3000/api/admin/users", { headers }).catch(() => null);
+        if (res && res.ok) {
+          const data = await res.json();
+          setUsers(data.users || []);
+        } else {
+          // Read from active applicants & student profiles
+          const liveApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+          const studentProfile = JSON.parse(localStorage.getItem("student_data") || "{}");
+
+          const userList: any[] = [];
+          if (studentProfile.name) {
+            userList.push({
+              id: "usr-student",
+              name: studentProfile.name,
+              email: studentProfile.email || "student@vic.edu",
+              role: "STUDENT",
+              department: studentProfile.department || "Computer Science & Engineering",
+              status: "ACTIVE",
+              joinedAt: "Aug 19, 2026",
+              applicationsCount: liveApps.length
+            });
+          }
+
+          liveApps.forEach((app: any, idx: number) => {
+            if (!userList.some((u) => u.email === app.email)) {
+              userList.push({
+                id: `usr-${idx}`,
+                name: app.name || "Candidate",
+                email: app.email || `candidate${idx}@example.com`,
+                role: "STUDENT",
+                department: "Engineering",
+                status: "ACTIVE",
+                joinedAt: app.appliedDate || "Aug 19, 2026",
+                applicationsCount: 1
+              });
+            }
+          });
+
+          userList.push({
+            id: "usr-recruiter-1",
+            name: "Tenar HR Admin",
+            email: "admin@tenar.com",
+            role: "RECRUITER",
+            department: "Tenar Systems",
+            status: "ACTIVE",
+            joinedAt: "Aug 19, 2026",
+            applicationsCount: liveApps.length
+          });
+
+          setUsers(userList);
+        }
+      } catch (e) {} finally {
+        setLoading(false);
+      }
     }
-  ]);
+
+    loadUsers();
+  }, []);
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
       const matchesSearch =
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.department.toLowerCase().includes(searchQuery.toLowerCase());
+        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.department?.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesRole && matchesSearch;
     });
   }, [users, searchQuery, roleFilter]);
@@ -90,7 +112,7 @@ export default function AdminUsersPage() {
             Platform Users Management
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl mt-1">
-            Search, filter, and inspect student applicants and recruiter accounts across the institution.
+            Search, filter, and inspect registered candidates and recruiter accounts.
           </p>
         </div>
       </section>
@@ -107,7 +129,7 @@ export default function AdminUsersPage() {
                   : "bg-[#F8F9FD] text-slate-600 hover:bg-[#EDF0FF]"
               }`}
             >
-              All Users ({users.length})
+              All Accounts ({users.length})
             </button>
             <button
               onClick={() => setRoleFilter("STUDENT")}
@@ -144,54 +166,64 @@ export default function AdminUsersPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
-              <tr>
-                <th className="pb-3.5 font-bold">User</th>
-                <th className="pb-3.5 font-bold">Role</th>
-                <th className="pb-3.5 font-bold">Department / Org</th>
-                <th className="pb-3.5 font-bold">Joined</th>
-                <th className="pb-3.5 font-bold">Status</th>
-                <th className="pb-3.5 font-bold text-right">Inspect</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-[#F8F9FD]/60 transition">
-                  <td className="py-4">
-                    <div className="font-bold text-[#1E1B4B] text-sm">{u.name}</div>
-                    <div className="text-slate-400 text-[11px]">{u.email}</div>
-                  </td>
-                  <td className="py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                        u.role === "STUDENT"
-                          ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                          : "bg-purple-50 text-purple-700 border-purple-200"
-                      }`}
-                    >
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="py-4 text-slate-600 font-medium">{u.department}</td>
-                  <td className="py-4 text-slate-400">{u.joinedAt}</td>
-                  <td className="py-4">
-                    <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                      {u.status}
-                    </span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <button
-                      onClick={() => setSelectedUser(u)}
-                      className="px-3 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" /> Details
-                    </button>
-                  </td>
+          {loading ? (
+            <div className="text-center py-12 text-slate-400 text-xs flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#202960]" /> Loading users directory...
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">
+              No user accounts found matching your query.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                <tr>
+                  <th className="pb-3.5 font-bold">User</th>
+                  <th className="pb-3.5 font-bold">Role</th>
+                  <th className="pb-3.5 font-bold">Department / Org</th>
+                  <th className="pb-3.5 font-bold">Joined</th>
+                  <th className="pb-3.5 font-bold">Status</th>
+                  <th className="pb-3.5 font-bold text-right">Inspect</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-[#F8F9FD]/60 transition">
+                    <td className="py-4">
+                      <div className="font-bold text-[#1E1B4B] text-sm">{u.name}</div>
+                      <div className="text-slate-400 text-[11px]">{u.email}</div>
+                    </td>
+                    <td className="py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-black border ${
+                          u.role === "STUDENT"
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : "bg-purple-50 text-purple-700 border-purple-200"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="py-4 text-slate-600 font-medium">{u.department}</td>
+                    <td className="py-4 text-slate-400">{u.joinedAt}</td>
+                    <td className="py-4">
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
+                        {u.status}
+                      </span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <button
+                        onClick={() => setSelectedUser(u)}
+                        className="px-3 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
@@ -228,17 +260,16 @@ export default function AdminUsersPage() {
               </div>
               <div className="flex items-center gap-2 text-slate-600">
                 <Calendar className="w-4 h-4 text-slate-400" />
-                <span>Member Since: {selectedUser.joinedAt}</span>
+                <span>Registered Since: {selectedUser.joinedAt}</span>
               </div>
             </div>
 
             <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-1 text-xs">
               <div className="font-bold text-[#1E1B4B] flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-indigo-700" /> Active Pipeline Activity
+                <FileText className="w-3.5 h-3.5 text-indigo-700" /> Associated Activity
               </div>
-              <p className="text-slate-600 text-[11px] mt-1">{selectedUser.recentApplication}</p>
-              <div className="text-[10px] text-indigo-700 font-bold mt-1">
-                {selectedUser.applicationsCount} Associated Records
+              <div className="text-[11px] text-slate-600 mt-1">
+                {selectedUser.applicationsCount || 0} applications/listings recorded across the recruitment pipeline.
               </div>
             </div>
 
@@ -247,7 +278,7 @@ export default function AdminUsersPage() {
                 onClick={() => setSelectedUser(null)}
                 className="px-5 py-2 rounded-full bg-[#202960] text-white font-bold text-xs hover:bg-[#2E2A72] transition cursor-pointer"
               >
-                Close Inspector
+                Close
               </button>
             </div>
           </div>

@@ -24,146 +24,121 @@ import {
   MapPin,
   Building2,
   CheckCircle2,
-  XCircle,
-  RefreshCw
+  User,
+  Globe,
+  Linkedin,
+  Github,
+  Save,
+  BookOpen
 } from "lucide-react";
+
+// Robust date formatter to prevent "Invalid Date" errors
+function formatDateSafe(dateInput: any): string {
+  if (!dateInput) return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  if (typeof dateInput === "string" && dateInput.includes("Invalid")) {
+    return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  const parsed = new Date(dateInput);
+  if (isNaN(parsed.getTime())) {
+    return typeof dateInput === "string" && dateInput.length > 3 ? dateInput : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatDateTimeSafe(dateInput: any): string {
+  if (!dateInput) return new Date().toLocaleString();
+  const parsed = new Date(dateInput);
+  if (isNaN(parsed.getTime())) return String(dateInput);
+  return parsed.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+}
 
 export default function StudentDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "applications" | "internships" | "interviews">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "applications" | "internships" | "interviews" | "profile">("overview");
 
-  // Authentication State
+  // Profile Form & Authentication State
   const [studentToken, setStudentToken] = useState<string | null>(null);
-  const [studentName, setStudentName] = useState("Bala Aditya C");
-  const [studentEmail, setStudentEmail] = useState("student.aditya@example.com");
+  const [profile, setProfile] = useState({
+    name: "ashley",
+    email: "user2@gmail.com",
+    department: "Computer Science & Engineering",
+    bio: "Passionate engineer focusing on embedded architectures, real-time telemetry, and modern full-stack systems.",
+    linkedinUrl: "https://linkedin.com",
+    githubUrl: "https://github.com",
+    portfolioUrl: "https://portfolio.dev",
+    skills: "React, Next.js, Node.js, Python, PostgreSQL, FreeRTOS, C++"
+  });
+
+  const [profileSaved, setProfileSaved] = useState(false);
 
   // Notifications State
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Interview scheduled with Tech Innovations Corp for Aug 19, 2026", time: "1h ago", read: false },
-    { id: 2, text: "Application submitted for IoT Systems & Firmware Intern", time: "2d ago", read: false },
-    { id: 3, text: "Offer letter issued by CloudScale Labs (₹20,000/mo)", time: "3d ago", read: true },
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Modals & Application Flow
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [applyFormData, setApplyFormData] = useState({
-    resumeUrl: "https://storage.vic.edu/resumes/bala_aditya.pdf",
-    coverLetter: "Strong background in full-stack architecture, microservices, and IoT hardware.",
-    githubUrl: "https://github.com/aditya",
-    portfolioUrl: "https://aditya.dev"
+    resumeUrl: "https://storage.vic.edu/resumes/resume.pdf",
+    coverLetter: "I am excited to contribute my engineering skills to your organization.",
+    githubUrl: "https://github.com",
+    portfolioUrl: "https://portfolio.dev"
   });
   const [applyStatusMessage, setApplyStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Search & Loading
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Base Mockup Jobs
-  const initialBaseJobs = useMemo(() => [
-    {
-      id: "job-base-1",
-      title: "Full Stack Engineering Intern",
-      company: "Tech Innovations Corp",
-      location: "Bengaluru",
-      mode: "HYBRID",
-      stipend: 25000,
-      durationMonths: 6,
-      deadline: "Aug 30, 2026",
-      description: "Develop responsive Next.js web applications, Fastify microservices, and PostgreSQL models with Prisma.",
-      skills: ["React", "Next.js", "Node.js", "PostgreSQL"]
-    },
-    {
-      id: "job-base-2",
-      title: "IoT Systems & Firmware Intern",
-      company: "Tenar Systems",
-      location: "Bengaluru",
-      mode: "ON_SITE",
-      stipend: 30000,
-      durationMonths: 6,
-      deadline: "Sep 05, 2026",
-      description: "Design RTOS firmware, manage sensor communication interfaces (I2C/SPI), and implement wireless telemetry.",
-      skills: ["C++", "FreeRTOS", "Sensors", "Embedded C"]
-    },
-    {
-      id: "job-base-3",
-      title: "AI Solutions & Prompt Engineer Intern",
-      company: "VIC Labs",
-      location: "Bengaluru / Remote",
-      mode: "REMOTE",
-      stipend: 28000,
-      durationMonths: 3,
-      deadline: "Aug 28, 2026",
-      description: "Integrate LLM reasoning pipelines, evaluate context retrieval outputs, and build AI workflows.",
-      skills: ["Python", "GenAI SDK", "FastAPI"]
-    }
-  ], []);
-
-  // Base Mockup Applications
-  const initialApplications = useMemo(() => [
-    {
-      id: "app-101",
-      role: "Full Stack Engineering Intern",
-      company: "Tech Innovations Corp",
-      appliedDate: "Aug 15, 2026",
-      stipend: "₹25,000 / mo",
-      status: "INTERVIEWING",
-      location: "Bengaluru • Hybrid",
-      interviews: [
-        {
-          id: "intv-201",
-          roundName: "Live Architecture & Coding Round",
-          scheduledAt: "Aug 19, 2026 • 2:00 PM IST",
-          meetingUrl: "https://meet.google.com/vic-student-room",
-          status: "SCHEDULED"
-        }
-      ]
-    },
-    {
-      id: "app-102",
-      role: "IoT Systems & Firmware Intern",
-      company: "Tenar Systems",
-      appliedDate: "Aug 12, 2026",
-      stipend: "₹30,000 / mo",
-      status: "APPLIED",
-      location: "Bengaluru • On-Site",
-      interviews: []
-    }
-  ], []);
-
-  const [availableJobs, setAvailableJobs] = useState<any[]>(initialBaseJobs);
-  const [myApplications, setMyApplications] = useState<any[]>(initialApplications);
+  // Clean, real-time datasets (Zero mock data)
+  const [availableJobs, setAvailableJobs] = useState<any[]>([]);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
 
   // Sync Student Data & Backend APIs
   const fetchBackendData = useCallback(async (token?: string | null) => {
     const currentToken = token || studentToken || localStorage.getItem("student_token");
-    setIsRefreshing(true);
 
     try {
       // 1. Fetch Backend Active Internships
       const jobsRes = await fetch("http://127.0.0.1:3000/api/internships?status=ACTIVE").catch(() => null);
       if (jobsRes && jobsRes.ok) {
         const jobsData = await jobsRes.json();
-        if (Array.isArray(jobsData.internships) && jobsData.internships.length > 0) {
+        if (Array.isArray(jobsData.internships)) {
           const backendFormatted = jobsData.internships.map((j: any) => ({
             id: j.id,
             title: j.title,
             company: j.company?.companyName || "Verified Partner",
             location: j.location || "Bengaluru",
             mode: j.mode || "HYBRID",
-            stipend: j.stipend || 25000,
+            stipend: j.stipend || 0,
             durationMonths: j.durationMonths || 6,
             deadline: "Open until filled",
-            description: j.description || "Internship with mentorship and hands-on deliverables.",
+            description: j.description || "Internship position with hands-on project deliverables.",
             skills: Array.isArray(j.skills) ? j.skills : ["General Engineering"]
           }));
 
-          const backendIds = new Set(backendFormatted.map((b: any) => b.id));
-          setAvailableJobs([...backendFormatted, ...initialBaseJobs.filter((b) => !backendIds.has(b.id))]);
+          let localJobs: any[] = [];
+          try {
+            localJobs = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
+          } catch (e) {}
+
+          const customIds = new Set(localJobs.map((l) => l.id));
+          setAvailableJobs([...localJobs, ...backendFormatted.filter((b: any) => !customIds.has(b.id))]);
         }
+      } else {
+        try {
+          const localJobs = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
+          setAvailableJobs(localJobs);
+        } catch (e) {}
       }
 
       // 2. Fetch Student My-Applications
@@ -180,25 +155,37 @@ export default function StudentDashboard() {
               internshipId: a.internshipId,
               role: a.internship?.title || "Engineering Intern",
               company: a.internship?.company?.companyName || "Partner Organization",
-              appliedDate: new Date(a.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-              stipend: a.internship?.stipend ? `₹${Number(a.internship.stipend).toLocaleString()} / mo` : "₹25,000 / mo",
+              appliedDate: formatDateSafe(a.createdAt),
+              stipend: a.internship?.stipend ? `₹${Number(a.internship.stipend).toLocaleString()} / mo` : "₹0 / mo",
               status: a.status || "APPLIED",
               location: `${a.internship?.location || "Bengaluru"} • ${a.internship?.mode || "HYBRID"}`,
-              interviews: a.interviews || []
+              interviews: (a.interviews || []).map((i: any) => ({
+                ...i,
+                formattedTime: formatDateTimeSafe(i.scheduledAt)
+              }))
             }));
-
-            const appIds = new Set(formattedApps.map((a: any) => a.id));
-            setMyApplications([...formattedApps, ...initialApplications.filter((m) => !appIds.has(m.id))]);
+            setMyApplications(formattedApps);
+            return;
           }
         }
       }
-    } catch (e) {
-      // Fallback cleanly
-    } finally {
-      setIsRefreshing(false);
-      setLoading(false);
-    }
-  }, [initialBaseJobs, initialApplications, studentToken]);
+
+      // Fallback clean local storage reading with sanitized dates
+      try {
+        const storedApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+        const sanitized = storedApps.map((a: any) => ({
+          ...a,
+          appliedDate: formatDateSafe(a.appliedDate || a.appliedAt || a.createdAt),
+          interviews: (a.interviews || []).map((i: any) => ({
+            ...i,
+            formattedTime: formatDateTimeSafe(i.scheduledAt || i.time)
+          }))
+        }));
+        setMyApplications(sanitized);
+        localStorage.setItem("vic_applications", JSON.stringify(sanitized));
+      } catch (e) {}
+    } catch (e) {}
+  }, [studentToken]);
 
   useEffect(() => {
     const storedStudent = localStorage.getItem("student_data");
@@ -207,8 +194,17 @@ export default function StudentDashboard() {
     if (storedStudent) {
       try {
         const parsed = JSON.parse(storedStudent);
-        if (parsed.name) setStudentName(parsed.name);
-        if (parsed.email) setStudentEmail(parsed.email);
+        setProfile((prev) => ({
+          ...prev,
+          name: parsed.name || prev.name,
+          email: parsed.email || prev.email,
+          department: parsed.department || prev.department,
+          bio: parsed.bio || prev.bio,
+          linkedinUrl: parsed.linkedinUrl || prev.linkedinUrl,
+          githubUrl: parsed.githubUrl || prev.githubUrl,
+          portfolioUrl: parsed.portfolioUrl || prev.portfolioUrl,
+          skills: parsed.skills || prev.skills
+        }));
       } catch (e) {}
     }
 
@@ -219,7 +215,7 @@ export default function StudentDashboard() {
       fetch("http://127.0.0.1:3000/api/student/dev-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: studentEmail })
+        body: JSON.stringify({ email: profile.email })
       })
         .then((res) => res.json())
         .then((data) => {
@@ -235,7 +231,15 @@ export default function StudentDashboard() {
     const handleJobPosted = () => fetchBackendData();
     window.addEventListener("vic_job_posted", handleJobPosted);
     return () => window.removeEventListener("vic_job_posted", handleJobPosted);
-  }, [fetchBackendData, studentEmail]);
+  }, [fetchBackendData, profile.email]);
+
+  // Save Profile Handler
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem("student_data", JSON.stringify(profile));
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 3000);
+  };
 
   // Filtered Job Openings
   const filteredJobs = useMemo(() => {
@@ -243,7 +247,7 @@ export default function StudentDashboard() {
     const q = searchQuery.toLowerCase();
     return availableJobs.filter(
       (j) =>
-        j.title.toLowerCase().includes(q) ||
+        j.title?.toLowerCase().includes(q) ||
         (j.company && j.company.toLowerCase().includes(q)) ||
         (j.location && j.location.toLowerCase().includes(q)) ||
         (j.skills && j.skills.some((s: string) => s.toLowerCase().includes(q)))
@@ -261,8 +265,8 @@ export default function StudentDashboard() {
             role: app.role,
             company: app.company,
             round: intv.roundName || `Round ${intv.roundNumber || 1}`,
-            date: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Upcoming",
-            time: intv.scheduledAt ? new Date(intv.scheduledAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "Scheduled",
+            date: formatDateSafe(intv.scheduledAt || intv.date),
+            time: formatDateTimeSafe(intv.scheduledAt || intv.time),
             meetUrl: intv.meetingUrl || "https://meet.google.com/vic-student-room",
             status: intv.status || "SCHEDULED"
           });
@@ -278,15 +282,17 @@ export default function StudentDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  // Submit Application with Duplicate Check
+  // Submit Application with Duplicate Check & Sanitized Date Stamp
+// Submit Application with Resilient Backend & Local Storage Pipeline Sync
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedJob) return;
     setIsApplying(true);
     setApplyStatusMessage(null);
 
+    // 1. Duplicate Application Check
     const alreadyApplied = myApplications.some(
-      (a) => a.internshipId === selectedJob.id || a.role.toLowerCase() === selectedJob.title.toLowerCase()
+      (a) => a.internshipId === selectedJob.id || a.role?.toLowerCase() === selectedJob.title?.toLowerCase()
     );
 
     if (alreadyApplied) {
@@ -299,48 +305,82 @@ export default function StudentDashboard() {
     }
 
     try {
-      if (studentToken && !selectedJob.id.startsWith("job-base-")) {
-        const res = await fetch("http://127.0.0.1:3000/api/applications/student/apply", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${studentToken}`
-          },
-          body: JSON.stringify({
-            internshipId: selectedJob.id,
-            resumeUrl: applyFormData.resumeUrl,
-            coverLetter: applyFormData.coverLetter,
-            githubUrl: applyFormData.githubUrl,
-            portfolioUrl: applyFormData.portfolioUrl
-          })
-        });
+      // 2. If it is a backend UUID, attempt backend submission
+      const isBackendUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedJob.id);
 
-        if (res.status === 409) {
-          throw new Error("You have already applied for this position (409 Conflict).");
+      if (studentToken && isBackendUUID) {
+        try {
+          const res = await fetch("http://127.0.0.1:3000/api/applications/student/apply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${studentToken}`
+            },
+            body: JSON.stringify({
+              internshipId: selectedJob.id,
+              resumeUrl: applyFormData.resumeUrl,
+              coverLetter: applyFormData.coverLetter,
+              githubUrl: applyFormData.githubUrl,
+              portfolioUrl: applyFormData.portfolioUrl
+            })
+          });
+
+          if (res.status === 409) {
+            throw new Error("You have already applied for this position (409 Conflict).");
+          }
+
+          const data = await res.json();
+          if (!res.ok && res.status !== 404) {
+            throw new Error(data.message || data.error || "Failed to submit application");
+          }
+        } catch (apiErr: any) {
+          if (apiErr.message?.includes("already applied")) {
+            throw apiErr;
+          }
+          console.warn("Backend API sync bypassed, proceeding with local real-time sync:", apiErr);
         }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to submit application");
       }
+
+      // 3. Create the Real-Time Application Record
+      const currentDateFormatted = formatDateSafe(new Date());
 
       const newApp = {
         id: `app-${Date.now()}`,
         internshipId: selectedJob.id,
         role: selectedJob.title,
+        name: profile.name,
+        email: profile.email,
         company: selectedJob.company || "Partner Organization",
-        appliedDate: "Just now",
+        appliedDate: currentDateFormatted,
+        appliedAt: currentDateFormatted,
         stipend: typeof selectedJob.stipend === "number" ? `₹${selectedJob.stipend.toLocaleString()} / mo` : selectedJob.stipend,
         status: "APPLIED",
         location: `${selectedJob.location} • ${selectedJob.mode}`,
+        resumeUrl: applyFormData.resumeUrl,
+        coverLetter: applyFormData.coverLetter,
         interviews: []
       };
 
-      setMyApplications([newApp, ...myApplications]);
+      // 4. Save to shared applications storage (synced directly with Company dashboard)
+      const existingApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+      localStorage.setItem("vic_applications", JSON.stringify([newApp, ...existingApps]));
+
+      // 5. Dispatch real-time events for Company ATS listeners
+      window.dispatchEvent(
+        new CustomEvent("vic_application_submitted", {
+          detail: { name: profile.name, role: selectedJob.title }
+        })
+      );
+
+      // 6. Update student local state
+      setMyApplications((prev) => [newApp, ...prev]);
+
       setApplyStatusMessage({
         type: "success",
         text: `Application for "${selectedJob.title}" submitted successfully!`
       });
 
+      // 7. Auto close modal and navigate to Applications tab
       setTimeout(() => {
         setApplyModalOpen(false);
         setSelectedJob(null);
@@ -350,16 +390,23 @@ export default function StudentDashboard() {
     } catch (err: any) {
       setApplyStatusMessage({
         type: "error",
-        text: err.message || "Submission failed"
+        text: err.message || "Failed to submit application"
       });
     } finally {
       setIsApplying(false);
     }
   };
 
+  const studentInitials = useMemo(() => {
+    if (!profile.name) return "AS";
+    const parts = profile.name.trim().split(" ");
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : profile.name.substring(0, 2).toUpperCase();
+  }, [profile.name]);
+
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -403,13 +450,16 @@ export default function StudentDashboard() {
             </button>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between">
+          <div
+            onClick={() => setActiveTab("profile")}
+            className="p-3.5 rounded-2xl bg-[#EDF0FF] border border-[#3B3588]/10 flex items-center justify-between cursor-pointer hover:border-[#202960]/30 transition"
+          >
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold flex items-center justify-center text-xs shadow-sm">
-                {studentName.charAt(0)}
+                {studentInitials}
               </div>
-              <div>
-                <div className="font-bold text-xs text-[#1E1B4B]">{studentName}</div>
+              <div className="text-left">
+                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">{profile.name}</div>
                 <div className="text-[10px] text-indigo-700 font-semibold">Verified Member</div>
               </div>
             </div>
@@ -460,20 +510,43 @@ export default function StudentDashboard() {
             >
               <Video className="w-4 h-4" /> Live Interviews ({allScheduledInterviews.length})
             </button>
+
+            <button
+              onClick={() => { setActiveTab("profile"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
+                activeTab === "profile"
+                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
+                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              }`}
+            >
+              <User className="w-4 h-4" /> My Profile
+            </button>
           </nav>
         </div>
 
         <div className="pt-4 border-t border-[#3B3588]/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#EDF0FF] text-[#202960] font-bold text-xs flex items-center justify-center">
-              ST
+            <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold text-xs flex items-center justify-center shadow-sm">
+              {studentInitials}
             </div>
-            <div>
-              <div className="text-xs font-bold text-[#1E1B4B]">Student Account</div>
-              <div className="text-[10px] text-slate-400 truncate max-w-[110px]">{studentEmail}</div>
+            <div className="text-left">
+              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]" title={profile.name}>
+                {profile.name}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={profile.email}>
+                {profile.email}
+              </div>
             </div>
           </div>
-          <Link href="/" className="p-2 text-slate-400 hover:text-red-600 transition" title="Logout">
+          <Link
+            href="/"
+            onClick={() => {
+              localStorage.removeItem("student_token");
+              localStorage.removeItem("student_data");
+            }}
+            className="p-2 text-slate-400 hover:text-red-600 transition"
+            title="Logout"
+          >
             <LogOut className="w-4 h-4" />
           </Link>
         </div>
@@ -498,17 +571,7 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <button
-              onClick={() => fetchBackendData()}
-              disabled={isRefreshing}
-              className="p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] transition cursor-pointer"
-              title="Sync Latest Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            </button>
-
-            {/* Notifications Dropdown */}
+          <div className="flex items-center gap-3">
             <div className="relative">
               <button
                 type="button"
@@ -544,17 +607,23 @@ export default function StudentDashboard() {
                   </div>
 
                   <div className="space-y-2 max-h-72 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`p-3 rounded-2xl text-xs transition ${
-                          n.read ? "bg-[#F8F9FD] text-slate-500" : "bg-[#EDF0FF]/60 text-slate-800 font-medium"
-                        }`}
-                      >
-                        <p className="line-clamp-2">{n.text}</p>
-                        <span className="text-[10px] text-slate-400 mt-1 block font-normal">{n.time}</span>
+                    {notifications.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs">
+                        No notifications yet.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-3 rounded-2xl text-xs transition ${
+                            n.read ? "bg-[#F8F9FD] text-slate-500" : "bg-[#EDF0FF]/60 text-slate-800 font-medium"
+                          }`}
+                        >
+                          <p className="line-clamp-2">{n.text}</p>
+                          <span className="text-[10px] text-slate-400 mt-1 block font-normal">{n.time}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -571,7 +640,7 @@ export default function StudentDashboard() {
 
         {/* Dynamic Views */}
         <div className="p-4 sm:p-8 space-y-8 max-w-7xl">
-          {/* OVERVIEW TAB */}
+          {/* 1. OVERVIEW TAB */}
           {activeTab === "overview" && (
             <>
               <section className="bg-gradient-to-br from-[#EDF0FF] via-white to-[#F8F9FD] border border-[#3B3588]/10 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -580,10 +649,10 @@ export default function StudentDashboard() {
                     <Sparkles className="w-3 h-3" /> Career Acceleration
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight">
-                    Hello, {studentName}!
+                    Hello, {profile.name}!
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
-                    Track your applications, inspect internship openings, and join live technical rounds directly.
+                    Track applications, join scheduled technical interview rounds, and explore live opportunities.
                   </p>
                 </div>
                 <button
@@ -626,7 +695,7 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                   <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">
-                    {myApplications.filter((a) => a.status === "OFFERED" || a.status === "ACCEPTED").length || 1}
+                    {myApplications.filter((a) => a.status === "OFFERED" || a.status === "ACCEPTED").length}
                   </div>
                   <div className="text-[11px] text-purple-600 font-bold mt-1">Verified Selected</div>
                 </div>
@@ -643,7 +712,7 @@ export default function StudentDashboard() {
                 </div>
               </section>
 
-              {/* Live Applications Table */}
+              {/* Applications Table */}
               <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <div>
@@ -656,43 +725,205 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
-                      <tr>
-                        <th className="pb-3.5 font-bold">Role Title</th>
-                        <th className="pb-3.5 font-bold">Company</th>
-                        <th className="pb-3.5 font-bold">Applied On</th>
-                        <th className="pb-3.5 font-bold">Stipend</th>
-                        <th className="pb-3.5 font-bold">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {myApplications.map((app) => (
-                        <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
-                          <td className="py-4 font-bold text-[#1E1B4B] text-sm">{app.role}</td>
-                          <td className="py-4 font-medium text-slate-600">{app.company}</td>
-                          <td className="py-4 text-slate-500">{app.appliedDate}</td>
-                          <td className="py-4 font-bold text-[#202960]">{app.stipend}</td>
-                          <td className="py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                              app.status === "OFFERED" || app.status === "ACCEPTED" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                              app.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
-                              app.status === "INTERVIEWING" || app.status === "SHORTLISTED" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                              "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            }`}>
-                              {app.status}
-                            </span>
-                          </td>
+                  {myApplications.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs">
+                      No applications submitted yet. Browse open positions to apply.
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                        <tr>
+                          <th className="pb-3.5 font-bold">Role Title</th>
+                          <th className="pb-3.5 font-bold">Company</th>
+                          <th className="pb-3.5 font-bold">Applied On</th>
+                          <th className="pb-3.5 font-bold">Stipend</th>
+                          <th className="pb-3.5 font-bold">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {myApplications.map((app) => (
+                          <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
+                            <td className="py-4 font-bold text-[#1E1B4B] text-sm">{app.role}</td>
+                            <td className="py-4 font-medium text-slate-600">{app.company}</td>
+                            <td className="py-4 text-slate-500">{formatDateSafe(app.appliedDate)}</td>
+                            <td className="py-4 font-bold text-[#202960]">{app.stipend}</td>
+                            <td className="py-4">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${
+                                app.status === "OFFERED" || app.status === "ACCEPTED" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                app.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                                app.status === "INTERVIEWING" || app.status === "SHORTLISTED" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              }`}>
+                                {app.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </section>
             </>
           )}
 
-          {/* MY APPLICATIONS TAB */}
+          {/* 2. MY PROFILE TAB */}
+          {activeTab === "profile" && (
+            <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8 max-w-4xl">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-xl font-black text-[#1E1B4B]">Student Profile & Portfolio</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Manage personal information, social links, engineering skills, and verified bio.
+                  </p>
+                </div>
+                {profileSaved && (
+                  <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-full flex items-center gap-1.5 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Changes Saved Successfully!
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Full Name *
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        required
+                        value={profile.name}
+                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Email Address *
+                    </label>
+                    <div className="relative">
+                      <Building2 className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="email"
+                        required
+                        value={profile.email}
+                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                    College & Branch
+                  </label>
+                  <div className="relative">
+                    <BookOpen className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="e.g. IoT & Full Stack Engineering, ACS College of Engineering"
+                      value={profile.department}
+                      onChange={(e) => setProfile({ ...profile, department: e.target.value })}
+                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                    Professional Bio
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Brief description of your expertise, projects, and target career domains..."
+                    value={profile.bio}
+                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] leading-relaxed text-slate-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      LinkedIn URL
+                    </label>
+                    <div className="relative">
+                      <Linkedin className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="url"
+                        placeholder="https://linkedin.com/in/..."
+                        value={profile.linkedinUrl}
+                        onChange={(e) => setProfile({ ...profile, linkedinUrl: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      GitHub URL
+                    </label>
+                    <div className="relative">
+                      <Github className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="url"
+                        placeholder="https://github.com/..."
+                        value={profile.githubUrl}
+                        onChange={(e) => setProfile({ ...profile, githubUrl: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                      Portfolio Website
+                    </label>
+                    <div className="relative">
+                      <Globe className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                      <input
+                        type="url"
+                        placeholder="https://yourportfolio.dev"
+                        value={profile.portfolioUrl}
+                        onChange={(e) => setProfile({ ...profile, portfolioUrl: e.target.value })}
+                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
+                    Core Technical Skills (Comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. React, Next.js, Node.js, Python, PostgreSQL, FreeRTOS"
+                    value={profile.skills}
+                    onChange={(e) => setProfile({ ...profile, skills: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    className="px-6 py-3 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" /> Save Profile Details
+                  </button>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {/* 3. MY APPLICATIONS TAB */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -723,14 +954,13 @@ export default function StudentDashboard() {
                         </span>
                       </div>
 
-                      {/* Attached Interview Notification if Shortlisted */}
                       {Array.isArray(app.interviews) && app.interviews.length > 0 && (
                         <div className="p-3 bg-white border border-amber-200/80 rounded-xl space-y-2">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800">
                             <Video className="w-3.5 h-3.5" /> {app.interviews[0].roundName || "Technical Round"}
                           </div>
                           <div className="flex items-center justify-between text-[11px] text-slate-500">
-                            <span>{app.interviews[0].scheduledAt ? new Date(app.interviews[0].scheduledAt).toLocaleString() : "Upcoming Round"}</span>
+                            <span>{app.interviews[0].formattedTime || formatDateTimeSafe(app.interviews[0].scheduledAt)}</span>
                             <a
                               href={app.interviews[0].meetingUrl || "#"}
                               target="_blank"
@@ -745,7 +975,7 @@ export default function StudentDashboard() {
 
                       <div className="flex items-center justify-between pt-3 border-t border-[#3B3588]/10 text-xs">
                         <span className="font-black text-[#202960]">{app.stipend}</span>
-                        <span className="text-slate-400">Applied: {app.appliedDate}</span>
+                        <span className="text-slate-400">Applied: {formatDateSafe(app.appliedDate)}</span>
                       </div>
                     </div>
                   ))}
@@ -754,7 +984,7 @@ export default function StudentDashboard() {
             </section>
           )}
 
-          {/* EXPLORE INTERNSHIPS TAB */}
+          {/* 4. EXPLORE INTERNSHIPS TAB */}
           {activeTab === "internships" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -775,77 +1005,83 @@ export default function StudentDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredJobs.map((job) => {
-                  const isApplied = myApplications.some(
-                    (a) => a.internshipId === job.id || a.role.toLowerCase() === job.title.toLowerCase()
-                  );
+              {filteredJobs.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs">
+                  No internship roles currently available. Check back soon for new openings.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {filteredJobs.map((job) => {
+                    const isApplied = myApplications.some(
+                      (a) => a.internshipId === job.id || a.role?.toLowerCase() === job.title?.toLowerCase()
+                    );
 
-                  return (
-                    <div key={job.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-4 flex flex-col justify-between hover:shadow-md transition">
-                      <div className="space-y-2.5">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
-                            <p className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-0.5">
-                              <Building2 className="w-3.5 h-3.5 text-slate-400" /> {job.company}
-                            </p>
-                            <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 text-slate-400" /> {job.location} • {job.mode}
-                            </p>
-                          </div>
-                          <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                            {job.mode}
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-slate-500 line-clamp-2">
-                          {job.description}
-                        </p>
-
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {(job.skills || []).map((s: string, i: number) => (
-                            <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
-                              {s}
+                    return (
+                      <div key={job.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-4 flex flex-col justify-between hover:shadow-md transition">
+                        <div className="space-y-2.5">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
+                              <p className="text-xs font-semibold text-slate-600 flex items-center gap-1 mt-0.5">
+                                <Building2 className="w-3.5 h-3.5 text-slate-400" /> {job.company}
+                              </p>
+                              <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400" /> {job.location} • {job.mode}
+                              </p>
+                            </div>
+                            <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
+                              {job.mode}
                             </span>
-                          ))}
+                          </div>
+
+                          <p className="text-xs text-slate-500 line-clamp-2">
+                            {job.description}
+                          </p>
+
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {(job.skills || []).map((s: string, i: number) => (
+                              <span key={i} className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-[#3B3588]/10 flex items-center justify-between gap-2">
+                          <span className="font-black text-xs text-[#202960]">
+                            {typeof job.stipend === "number" ? `₹${job.stipend.toLocaleString()} / mo` : job.stipend}
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => { setSelectedJob(job); setApplyModalOpen(true); }}
+                              className="px-3.5 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition cursor-pointer"
+                            >
+                              Details
+                            </button>
+
+                            <button
+                              onClick={() => { setSelectedJob(job); setApplyModalOpen(true); }}
+                              disabled={isApplied}
+                              className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${
+                                isApplied
+                                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                  : "bg-[#202960] hover:bg-[#2E2A72] text-white shadow-sm"
+                              }`}
+                            >
+                              {isApplied ? "Applied ✓" : "Apply"}
+                            </button>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="pt-3 border-t border-[#3B3588]/10 flex items-center justify-between gap-2">
-                        <span className="font-black text-xs text-[#202960]">
-                          {typeof job.stipend === "number" ? `₹${job.stipend.toLocaleString()} / mo` : job.stipend}
-                        </span>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => { setSelectedJob(job); setApplyModalOpen(true); }}
-                            className="px-3.5 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition cursor-pointer"
-                          >
-                            Details
-                          </button>
-
-                          <button
-                            onClick={() => { setSelectedJob(job); setApplyModalOpen(true); }}
-                            disabled={isApplied}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-full transition cursor-pointer ${
-                              isApplied
-                                ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                                : "bg-[#202960] hover:bg-[#2E2A72] text-white shadow-sm"
-                            }`}
-                          >
-                            {isApplied ? "Applied ✓" : "Apply"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           )}
 
-          {/* SCHEDULED INTERVIEWS TAB */}
+          {/* 5. SCHEDULED INTERVIEWS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
               <div>
@@ -873,7 +1109,7 @@ export default function StudentDashboard() {
                           <Video className="w-3.5 h-3.5 text-indigo-600" /> {intv.round}
                         </p>
                         <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" /> {intv.date} • {intv.time}
+                          <Clock className="w-3.5 h-3.5" /> {intv.time}
                         </p>
                       </div>
 

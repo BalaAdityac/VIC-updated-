@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Building2,
   Search,
@@ -14,59 +14,59 @@ import {
   Briefcase,
   Mail,
   MapPin,
-  FileCheck
+  FileCheck,
+  Loader2
 } from "lucide-react";
+import { getAdminToken } from "@/lib/adminAuth";
 
 export default function AdminCompaniesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [companies, setCompanies] = useState([
-    {
-      id: "comp-1",
-      name: "Tenar Systems",
-      website: "https://tenar.in",
-      contactEmail: "admin@tenar.com",
-      location: "Bengaluru, Karnataka, India",
-      registrationNumber: "CIN-U72200KA2024PTC189",
-      activeRoles: 2,
-      status: "VERIFIED",
-      description: "Pioneering embedded hardware architectures, smart sensor nodes, and real-time RTOS firmware telemetry."
-    },
-    {
-      id: "comp-2",
-      name: "Nexus Autonomous",
-      website: "https://nexusauto.io",
-      contactEmail: "recruiter@nexus.com",
-      location: "Bengaluru, Karnataka, India",
-      registrationNumber: "CIN-U74999KA2025PTC092",
-      activeRoles: 1,
-      status: "VERIFIED",
-      description: "Autonomous robotics, kinematic motion planners, and distributed ROS2 compute pipelines."
-    },
-    {
-      id: "comp-3",
-      name: "CloudScale Labs",
-      website: "https://cloudscale.io",
-      contactEmail: "hr@cloudscale.io",
-      location: "Remote / Bengaluru",
-      registrationNumber: "CIN-U72900DL2023PTC412",
-      activeRoles: 1,
-      status: "VERIFIED",
-      description: "Cloud computing infrastructure, serverless architectures, and modern Next.js platforms."
-    },
-    {
-      id: "comp-4",
-      name: "NextGen Robotics",
-      website: "https://nextgenrobotics.org",
-      contactEmail: "contact@nextgenrobotics.org",
-      location: "Bengaluru, India",
-      registrationNumber: "CIN-U80904KA2026PTC331",
-      activeRoles: 0,
-      status: "BLOCKED",
-      description: "Experimental robotics projects and drone teleoperation."
+  useEffect(() => {
+    async function loadCompanies() {
+      setLoading(true);
+      try {
+        const token = await getAdminToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const res = await fetch("http://127.0.0.1:3000/api/admin/companies", { headers }).catch(() => null);
+        if (res && res.ok) {
+          const data = await res.json();
+          setCompanies(data.companies || []);
+        } else {
+          const storedComp = localStorage.getItem("company_data");
+          const customJobs = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
+
+          const parsed = storedComp ? JSON.parse(storedComp) : null;
+          const companyList: any[] = [];
+
+          if (parsed) {
+            companyList.push({
+              id: "comp-live",
+              name: parsed.companyName || "Tenar Systems",
+              website: parsed.website || "https://tenar.in",
+              contactEmail: parsed.email || "admin@tenar.com",
+              location: parsed.location || "Bengaluru, Karnataka, India",
+              registrationNumber: parsed.registrationNumber || "CIN-U72200KA2024PTC189",
+              activeRoles: customJobs.length,
+              status: "VERIFIED",
+              description: parsed.description || "Pioneering embedded hardware architectures, smart sensor nodes, and real-time RTOS firmware telemetry."
+            });
+          }
+
+          setCompanies(companyList);
+        }
+      } catch (e) {} finally {
+        setLoading(false);
+      }
     }
-  ]);
+
+    loadCompanies();
+  }, []);
 
   const handleToggleStatus = (id: string) => {
     setCompanies((prev) =>
@@ -83,9 +83,9 @@ export default function AdminCompaniesPage() {
   const filtered = useMemo(() => {
     return companies.filter(
       (c) =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.contactEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.location.toLowerCase().includes(searchQuery.toLowerCase())
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.contactEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.location?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [companies, searchQuery]);
 
@@ -101,7 +101,7 @@ export default function AdminCompaniesPage() {
             Partner Companies & Organizations
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-xl mt-1">
-            Review partner organizations, inspect registration details, and manage block/unblock permissions.
+            Review partner organizations, inspect registration details, and manage permissions.
           </p>
         </div>
       </section>
@@ -123,80 +123,90 @@ export default function AdminCompaniesPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
-              <tr>
-                <th className="pb-3.5 font-bold">Company</th>
-                <th className="pb-3.5 font-bold">Website</th>
-                <th className="pb-3.5 font-bold">Contact Email</th>
-                <th className="pb-3.5 font-bold">Live Roles</th>
-                <th className="pb-3.5 font-bold">Status</th>
-                <th className="pb-3.5 font-bold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filtered.map((comp) => (
-                <tr key={comp.id} className="hover:bg-[#F8F9FD]/60 transition">
-                  <td className="py-4">
-                    <div className="font-bold text-[#1E1B4B] text-sm">{comp.name}</div>
-                    <div className="text-slate-400 text-[10px]">{comp.location}</div>
-                  </td>
-                  <td className="py-4 text-slate-500">
-                    <a
-                      href={comp.website}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="hover:text-[#202960] hover:underline flex items-center gap-1"
-                    >
-                      {comp.website} <ExternalLink className="w-3 h-3 text-slate-400" />
-                    </a>
-                  </td>
-                  <td className="py-4 text-slate-500">{comp.contactEmail}</td>
-                  <td className="py-4 font-semibold text-slate-600">{comp.activeRoles} Postings</td>
-                  <td className="py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                        comp.status === "VERIFIED"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-red-50 text-red-700 border-red-200"
-                      }`}
-                    >
-                      {comp.status}
-                    </span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        onClick={() => setSelectedCompany(comp)}
-                        className="px-3 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition flex items-center gap-1 cursor-pointer"
+          {loading ? (
+            <div className="text-center py-12 text-slate-400 text-xs flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#202960]" /> Loading organizations...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs">
+              No companies currently registered.
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs">
+              <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
+                <tr>
+                  <th className="pb-3.5 font-bold">Company</th>
+                  <th className="pb-3.5 font-bold">Website</th>
+                  <th className="pb-3.5 font-bold">Contact Email</th>
+                  <th className="pb-3.5 font-bold">Active Roles</th>
+                  <th className="pb-3.5 font-bold">Status</th>
+                  <th className="pb-3.5 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {filtered.map((comp) => (
+                  <tr key={comp.id} className="hover:bg-[#F8F9FD]/60 transition">
+                    <td className="py-4">
+                      <div className="font-bold text-[#1E1B4B] text-sm">{comp.name}</div>
+                      <div className="text-slate-400 text-[10px]">{comp.location}</div>
+                    </td>
+                    <td className="py-4 text-slate-500">
+                      <a
+                        href={comp.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:text-[#202960] hover:underline flex items-center gap-1"
                       >
-                        <Eye className="w-3.5 h-3.5" /> Details
-                      </button>
-
-                      <button
-                        onClick={() => handleToggleStatus(comp.id)}
-                        className={`px-3.5 py-1.5 rounded-full font-bold text-xs transition cursor-pointer flex items-center gap-1 ${
+                        {comp.website} <ExternalLink className="w-3 h-3 text-slate-400" />
+                      </a>
+                    </td>
+                    <td className="py-4 text-slate-500">{comp.contactEmail}</td>
+                    <td className="py-4 font-semibold text-slate-600">{comp.activeRoles || 0} Postings</td>
+                    <td className="py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-black border ${
                           comp.status === "VERIFIED"
-                            ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
-                            : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-red-50 text-red-700 border-red-200"
                         }`}
                       >
-                        {comp.status === "VERIFIED" ? (
-                          <>
-                            <Ban className="w-3 h-3" /> Block
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-3 h-3" /> Unblock
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {comp.status}
+                      </span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedCompany(comp)}
+                          className="px-3 py-1.5 rounded-full border border-[#202960]/20 text-[#202960] font-bold text-xs hover:bg-[#EDF0FF] transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /> Details
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleStatus(comp.id)}
+                          className={`px-3.5 py-1.5 rounded-full font-bold text-xs transition cursor-pointer flex items-center gap-1 ${
+                            comp.status === "VERIFIED"
+                              ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                              : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                          }`}
+                        >
+                          {comp.status === "VERIFIED" ? (
+                            <>
+                              <Ban className="w-3 h-3" /> Block
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-3 h-3" /> Unblock
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
@@ -207,7 +217,7 @@ export default function AdminCompaniesPage() {
             <div className="flex justify-between items-start pb-2 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#202960] text-white font-bold flex items-center justify-center text-sm shadow-md">
-                  {selectedCompany.name.charAt(0)}
+                  {selectedCompany.name?.charAt(0)}
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-[#1E1B4B]">{selectedCompany.name}</h3>
@@ -232,7 +242,7 @@ export default function AdminCompaniesPage() {
 
             <div className="space-y-3 text-xs bg-[#F8F9FD] p-4 rounded-2xl border border-slate-100">
               <p className="text-slate-600 leading-relaxed font-medium">{selectedCompany.description}</p>
-              
+
               <div className="pt-3 border-t border-slate-200/60 space-y-2">
                 <div className="flex items-center gap-2 text-slate-600">
                   <Globe className="w-4 h-4 text-slate-400" />
@@ -258,7 +268,7 @@ export default function AdminCompaniesPage() {
 
                 <div className="flex items-center gap-2 text-slate-600">
                   <Briefcase className="w-4 h-4 text-slate-400" />
-                  <span>Active Job Postings: <strong>{selectedCompany.activeRoles} Roles</strong></span>
+                  <span>Active Positions: <strong>{selectedCompany.activeRoles || 0} Roles</strong></span>
                 </div>
               </div>
             </div>
