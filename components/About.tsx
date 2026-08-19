@@ -32,7 +32,7 @@ export default function About() {
           {/* Right Side */}
           <div className="animate-fade-up">
 
-            <div className="mb-4 font-bold uppercase tracking-[0.2em] text-[#1677FF]">
+            <div className="mb-1 font-bold uppercase tracking-[0.2em] text-[#1677FF]">
               About Us
             </div>
 
@@ -47,7 +47,7 @@ export default function About() {
               experiences, and career opportunities.
             </p>
 
-            <p className="mt-4 leading-7 text-[#60758A]">
+            <p className="mt-3 leading-7 text-[#60758A]">
               We bring together internships, skill development, mentorship,
               projects, certifications, and industry connections in one
               supportive ecosystem.
