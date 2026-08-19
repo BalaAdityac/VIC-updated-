@@ -1,0 +1,879 @@
+{
+  "info": {
+    "name": "VIC Recruiter Workflow - Integration & Security",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "companyToken",
+      "value": ""
+    },
+    {
+      "key": "otherCompanyToken",
+      "value": ""
+    },
+    {
+      "key": "studentToken",
+      "value": ""
+    },
+    {
+      "key": "rejectedStudentToken",
+      "value": ""
+    },
+    {
+      "key": "internshipId",
+      "value": ""
+    },
+    {
+      "key": "applicationId",
+      "value": ""
+    },
+    {
+      "key": "rejectedApplicationId",
+      "value": ""
+    },
+    {
+      "key": "interviewId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Register Company A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"company-a-{$timestamp}@example.com\",\"password\":\"Password123\",\"role\":\"COMPANY\",\"companyName\":\"VIC Test Company A\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('companyToken', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register Company B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"company-b-{$timestamp}@example.com\",\"password\":\"Password123\",\"role\":\"COMPANY\",\"companyName\":\"VIC Test Company B\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('otherCompanyToken', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register Student A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"student-a-{$timestamp}@example.com\",\"password\":\"Password123\",\"role\":\"STUDENT\",\"fullName\":\"Workflow Student A\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('studentToken', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register Student B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"student-b-{$timestamp}@example.com\",\"password\":\"Password123\",\"role\":\"STUDENT\",\"fullName\":\"Workflow Student B\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('rejectedStudentToken', pm.response.json().data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Internship",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/internships",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Backend Integration Intern\",\"description\":\"Node.js and Prisma internship\",\"location\":\"Bengaluru\",\"workMode\":\"HYBRID\",\"stipend\":\"15000\",\"skills\":\"Node.js,Prisma,PostgreSQL\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('internshipId',pm.response.json().data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student A Apply",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/internships/{{internshipId}}/apply"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('applicationId',pm.response.json().data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Duplicate Application - Negative",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/internships/{{internshipId}}/apply"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409 duplicate',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student B Apply",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{rejectedStudentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/internships/{{internshipId}}/apply"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('rejectedApplicationId',pm.response.json().data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company Applications",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Candidate Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{applicationId}}/candidate"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unauthorized Candidate Access - Negative",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{otherCompanyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{applicationId}}/candidate"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 not owned',()=>pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid Application ID - Negative",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/00000000-0000-0000-0000-000000000000/candidate"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 invalid id',()=>pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Applications - Initial",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('APPLIED visible',()=>pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('applicationId')).status==='APPLIED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shortlist Candidate",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{applicationId}}/status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\":\"SHORTLISTED\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('shortlisted',()=>pm.response.json().data.status==='SHORTLISTED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Applications - Shortlisted",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('SHORTLISTED visible',()=>pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('applicationId')).status==='SHORTLISTED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schedule Interview",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{applicationId}}/interviews",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"scheduledAt\":\"2026-08-20T10:00:00.000Z\",\"durationMins\":45,\"meetingLink\":\"https://meet.google.com/vic-test\",\"interviewType\":\"ONLINE\",\"round\":\"TECHNICAL\",\"interviewer\":\"VIC Engineering Team\",\"notes\":\"Initial technical interview\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 created',()=>pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('interviewId',pm.response.json().data.id);",
+              "pm.test('scheduled status',()=>pm.response.json().data.status==='SCHEDULED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Duplicate Interview - Negative",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{applicationId}}/interviews",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"scheduledAt\":\"2026-08-21T10:00:00.000Z\",\"interviewType\":\"ONLINE\",\"round\":\"HR\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409 duplicate interview',()=>pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Interview Details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/interviews"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('meeting link present',()=>!!pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('interviewId')).meetingLink);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reschedule Interview",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/interviews/{{interviewId}}/reschedule",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"scheduledAt\":\"2026-08-22T12:00:00.000Z\",\"durationMins\":60,\"meetingLink\":\"https://meet.google.com/vic-rescheduled\",\"interviewType\":\"ONLINE\",\"round\":\"MANAGERIAL\",\"interviewer\":\"VIC Manager\",\"notes\":\"Rescheduled\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('rescheduled status',()=>pm.response.json().data.status==='RESCHEDULED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Interview After Reschedule",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/interviews"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('rescheduled visible',()=>pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('interviewId')).status==='RESCHEDULED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Evaluation HOLD",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/interviews/{{interviewId}}/evaluation",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"score\":82,\"remarks\":\"Keep on hold\",\"recommendation\":\"HOLD\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Evaluation SELECTED",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/interviews/{{interviewId}}/evaluation",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"score\":91,\"remarks\":\"Strong candidate\",\"recommendation\":\"SELECTED\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));",
+              "pm.test('selected',()=>pm.response.json().data.recommendation==='SELECTED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company Get Evaluation",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/interviews/{{interviewId}}/evaluation"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 ok',()=>pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Final Application Status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/student/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('selected visible',()=>pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('applicationId')).status==='SELECTED');",
+              "pm.test('interview completed',()=>pm.response.json().data.find(x=>x.id===pm.collectionVariables.get('applicationId')).interviews[0].status==='COMPLETED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Other Company Evaluation Access - Negative",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{otherCompanyToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/interviews/{{interviewId}}/evaluation"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 not owned',()=>pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Company API Access - Negative",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('403 forbidden',()=>pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject Student B",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{rejectedApplicationId}}/status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"status\":\"REJECTED\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 rejected',()=>pm.response.to.have.status(200));",
+              "pm.test('rejected',()=>pm.response.json().data.status==='REJECTED');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rejected Candidate Cannot Interview - Negative",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{rejectedApplicationId}}/interviews",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"scheduledAt\":\"2026-08-20T10:00:00.000Z\",\"interviewType\":\"ONLINE\",\"round\":\"HR\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 rejected candidate',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missing Interview Details - Negative",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{companyToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications/{{rejectedApplicationId}}/interviews",
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 validation',()=>pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invalid Token - Negative",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer invalid-token"
+          }
+        ],
+        "url": "{{baseUrl}}/company/applications"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('401 invalid token',()=>pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

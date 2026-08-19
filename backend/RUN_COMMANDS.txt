@@ -1,0 +1,42 @@
+VIC RECRUITER WORKFLOW - STABILIZATION COMMANDS
+
+1. Install dependencies
+npm install
+
+2. Validate Prisma
+npx prisma validate
+npx prisma generate
+
+3. Check migration state
+npx prisma migrate status
+
+4. Apply the recruiter workflow + stabilization migrations
+npx prisma migrate dev
+
+5. Start API
+npm run dev
+
+6. Run real database integration tests in another PowerShell terminal
+node scripts/integration-test.js
+
+Expected:
+ALL INTEGRATION TESTS PASSED
+
+7. Import Postman collection
+postman/VIC-Recruiter-Workflow.postman_collection.json
+
+Main student integration endpoints:
+GET /api/student/applications
+GET /api/student/interviews
+
+Main recruiter endpoints:
+POST /api/company/internships
+GET /api/company/applications
+GET /api/company/applications/:applicationId/candidate
+PATCH /api/company/applications/:applicationId/status
+POST /api/company/applications/:applicationId/interviews
+PATCH /api/company/interviews/:interviewId/reschedule
+GET /api/company/interviews
+GET /api/company/interviews/:interviewId
+PUT /api/company/interviews/:interviewId/evaluation
+GET /api/company/interviews/:interviewId/evaluation

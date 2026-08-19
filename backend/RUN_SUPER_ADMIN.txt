@@ -1,0 +1,51 @@
+VIC SUPER ADMIN MODULE - RUN COMMANDS
+
+1) Open PowerShell in backend:
+   cd backend
+
+2) Install dependencies:
+   npm install
+
+3) Configure .env:
+   copy .env.example .env
+   Set DATABASE_URL to your PostgreSQL vic_db connection.
+   Set JWT_SECRET to the same secret used by the existing backend.
+   Example:
+   DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/vic_db?schema=public"
+   JWT_SECRET="your-existing-jwt-secret"
+   PORT=5000
+
+4) Generate Prisma Client:
+   npx prisma generate
+
+5) Apply the new admin migration:
+   npx prisma migrate dev
+
+6) Create the Super Admin using the EXISTING auth system:
+   node scripts/create-super-admin.js admin@vic.local StrongPassword123!
+
+7) Start backend:
+   npm run dev
+
+8) Login:
+   POST http://localhost:5000/api/auth/login
+   Body:
+   {
+     "email": "admin@vic.local",
+     "password": "StrongPassword123!"
+   }
+
+9) Copy the returned token into Postman. Admin endpoints are under:
+   http://localhost:5000/api/admin/*
+
+10) Import:
+   postman/VIC-Super-Admin.postman_collection.json
+
+Security tests:
+- Student/Company tokens -> 403 on admin endpoints.
+- Missing token -> 401.
+- Invalid UUID -> 400.
+- Unknown UUID -> 404.
+- Super Admin token -> 200/201/204 as applicable.
+
+Important: do NOT commit .env or real admin passwords.
