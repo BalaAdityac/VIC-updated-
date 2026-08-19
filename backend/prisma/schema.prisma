@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  COMPANY
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+  SELECTED
+}
+
+enum InterviewType {
+  ONLINE
+  OFFLINE
+}
+
+enum InterviewRound {
+  HR
+  TECHNICAL
+  MANAGERIAL
+  FINAL
+}
+
+enum CompanyVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum Recommendation {
+  SELECTED
+  REJECTED
+  HOLD
+}
+
+model User {
+  id                  String           @id @default(uuid()) @db.Uuid
+  email               String           @unique
+  password            String
+  role                Role
+  status              AccountStatus    @default(ACTIVE)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  profile             StudentProfile?
+  company             Company?
+  education           Education[]
+  projects            Project[]
+  userSkills          UserSkill[]
+  applications        Application[]    @relation("StudentApplications")
+  interviewsAsStudent Interview[]      @relation("StudentInterviews")
+  adminAuditLogs       AuditLog[]       @relation("AdminAuditLogs")
+}
+
+model StudentProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  fullName  String
+  phone     String?
+  bio       String?
+  resume    String?
+  location  String?
+  userId    String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Education {
+  id          String   @id @default(uuid()) @db.Uuid
+  college     String
+  degree      String
+  branch      String
+  cgpa        Float?
+  passingYear Int
+  userId      String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  description String
+  github      String?
+  liveLink    String?
+  technology  String
+  userId      String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Skill {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String      @unique
+  userSkills UserSkill[]
+}
+
+model UserSkill {
+  id      String @id @default(uuid()) @db.Uuid
+  userId  String @db.Uuid
+  skillId String @db.Uuid
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, skillId])
+}
+
+model Company {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  website      String?
+  location     String?
+  userId       String       @unique @db.Uuid
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  verificationStatus CompanyVerificationStatus @default(PENDING)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  internships Internship[]
+}
+
+model Internship {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  description  String
+  location     String?
+  workMode     String?
+  stipend      String?
+  skills       String?
+  deadline     DateTime?
+  isActive     Boolean       @default(true)
+  companyId    String        @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications Application[]
+}
+
+model Application {
+  id           String            @id @default(uuid()) @db.Uuid
+  studentId    String            @db.Uuid
+  internshipId String            @db.Uuid
+  status       ApplicationStatus @default(APPLIED)
+  appliedAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  student      User              @relation("StudentApplications", fields: [studentId], references: [id], onDelete: Cascade)
+  internship   Internship        @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+  interviews   Interview[]
+  @@unique([studentId, internshipId])
+  @@index([internshipId, status])
+  @@index([studentId])
+}
+
+model Interview {
+  id            String         @id @default(uuid()) @db.Uuid
+  applicationId String         @db.Uuid
+  studentId     String         @db.Uuid
+  scheduledAt   DateTime
+  durationMins  Int            @default(30)
+  meetingLink   String?
+  interviewType InterviewType
+  round         InterviewRound
+  interviewer   String?
+  notes         String?
+  status        InterviewStatus @default(SCHEDULED)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  student       User           @relation("StudentInterviews", fields: [studentId], references: [id], onDelete: Cascade)
+  evaluation    Evaluation?
+  @@unique([applicationId])
+  @@index([studentId])
+}
+
+model Evaluation {
+  id             String         @id @default(uuid()) @db.Uuid
+  interviewId    String         @unique @db.Uuid
+  score          Float?
+  remarks        String?
+  recommendation Recommendation
+  evaluatedBy    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  interview      Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+}
+
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  adminId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?  @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  admin      User?    @relation("AdminAuditLogs", fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+}

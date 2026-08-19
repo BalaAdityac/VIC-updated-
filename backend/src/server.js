@@ -1,0 +1,12 @@
+const express=require("express");
+const cors=require("cors");
+const routes=require("./routes");
+const {PORT}=require("./config/env");
+const errorHandler=require("./middlewares/error");
+const app=express();
+app.use(cors());
+app.use(express.json());
+app.get("/health",(req,res)=>res.json({success:true,message:"VIC backend is running"}));
+app.use("/api",routes);
+app.use(errorHandler);
+app.listen(PORT,()=>console.log(`VIC backend running on http://localhost:${PORT}`));
