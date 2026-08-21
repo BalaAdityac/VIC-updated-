@@ -4,7 +4,7 @@ const skills = ["Technical Skills", "Communication", "Problem Solving", "Portfol
 
 export default function StudentSkillUp() {
   return (
-    <section id="student-skill-up" className=" py-20">
+    <section id="student-skill-up" className=" py-19">
       <div className="container-vic">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <div>

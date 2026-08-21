@@ -11,7 +11,7 @@ const features = [
 
 export default function WhyChooseVIC() {
   return (
-    <section id="why-us" className="py-28">
+    <section id="why-us" className="py-18">
       <div className="container-vic">
         <div className="mx-auto max-w-3xl text-center">
           <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]"> Why Us </div>

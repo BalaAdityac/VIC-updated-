@@ -7,7 +7,7 @@ const gallery = [
 
 export default function Gallery() {
   return (
-    <section id="gallery" className="py-28">
+    <section id="gallery" className="py-24">
       <div className="container-vic">
         <div className="text-center max-w-2xl mx-auto">
           <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]">Gallery</div>
