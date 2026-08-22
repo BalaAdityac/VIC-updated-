@@ -517,7 +517,7 @@ export default function Dashboard() {
           </Card>
 
           <div className="copyright">
-            © 2026 Visionary Interns Club · Student Portal
+            © 2026 Tenar · Student Portal
           </div>
         </section>
       </main>

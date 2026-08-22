@@ -1,262 +1,279 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import {
-  GraduationCap,
-  Building2,
-  Mail,
-  Lock,
-  User,
-  Globe,
-  FileText,
-  ArrowRight,
-  Loader2,
-} from "lucide-react";
-import logoImg from "../../public/logo.jpg";
+import { User, Mail, Lock, BookOpen, ArrowRight, AlertCircle, Sparkles, Building2, Globe, MapPin } from "lucide-react";
+import { saveStudentSession } from "@/lib/authSession";
 
-export default function SignUpPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [role, setRole] = useState<"STUDENT" | "COMPANY">("STUDENT");
-  const [formData, setFormData] = useState({
-    fullName: "",
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Student Form State
+  const [studentForm, setStudentForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    department: "Computer Science & Engineering"
+  });
+
+  // Company Form State
+  const [companyForm, setCompanyForm] = useState({
     companyName: "",
     email: "",
     password: "",
     website: "",
-    description: "",
+    location: "Bengaluru, Karnataka, India"
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
-    try {
-      if (role === "COMPANY") {
-        const res = await fetch("http://127.0.0.1:3000/api/company/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            companyName: formData.companyName,
-            email: formData.email,
-            password: formData.password,
-            website: formData.website || undefined,
-            description: formData.description || undefined,
-          }),
-        });
+    if (role === "STUDENT") {
+      const email = studentForm.email.trim().toLowerCase();
+      const registeredStudents = JSON.parse(localStorage.getItem("vic_registered_students") || "[]");
+      const exists = registeredStudents.some((u: any) => u.email?.toLowerCase() === email);
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || data.error || "Company registration failed");
-
-        if (data.token) {
-          localStorage.setItem("company_token", data.token);
-          localStorage.setItem("company_data", JSON.stringify(data.company));
-        }
-
-        router.push("/company");
-      } else {
-        // Student signup flow
-        const res = await fetch("http://127.0.0.1:3000/api/student/dev-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Student registration failed");
-
-        if (data.token) {
-          localStorage.setItem("student_token", data.token);
-          localStorage.setItem(
-            "student_data",
-            JSON.stringify({ ...data.student, name: formData.fullName })
-          );
-        }
-
-        router.push("/student/dashboard");
+      if (exists) {
+        setError("A student account with this email already exists. Please sign in.");
+        setLoading(false);
+        return;
       }
-    } catch (err: any) {
-      setError(err.message || "Registration failed");
-    } finally {
-      setLoading(false);
+
+      const newStudent = {
+        id: `stud-${Date.now()}`,
+        name: studentForm.name.trim(),
+        email,
+        department: studentForm.department,
+        password: studentForm.password,
+        bio: "Engineering student eager to contribute and learn.",
+        linkedinUrl: "https://linkedin.com",
+        githubUrl: "https://github.com",
+        portfolioUrl: "https://portfolio.dev",
+        skills: "React, TypeScript, Python"
+      };
+
+      localStorage.setItem("vic_registered_students", JSON.stringify([...registeredStudents, newStudent]));
+      saveStudentSession(`student_token_${Date.now()}`, newStudent);
+      router.push("/student/dashboard");
+      return;
+    }
+
+    if (role === "COMPANY") {
+      const email = companyForm.email.trim().toLowerCase();
+      const registeredCompanies = JSON.parse(localStorage.getItem("vic_registered_companies") || "[]");
+      const exists = registeredCompanies.some((c: any) => c.email?.toLowerCase() === email);
+
+      if (exists) {
+        setError("An organization with this recruiter email already exists. Please sign in.");
+        setLoading(false);
+        return;
+      }
+
+      const newCompany = {
+        id: `comp-${Date.now()}`,
+        companyName: companyForm.companyName.trim(),
+        email,
+        password: companyForm.password,
+        website: companyForm.website.trim() || `https://${companyForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`,
+        location: companyForm.location,
+        industry: "Enterprise Technology & Engineering",
+        tagline: "Building scalable technology solutions with student talent.",
+        registrationNumber: `CIN-U${Math.floor(10000 + Math.random() * 90000)}KA2026PTC`,
+        description: "Official partner organization on Visionary Interns Club."
+      };
+
+      localStorage.setItem("vic_registered_companies", JSON.stringify([...registeredCompanies, newCompany]));
+      localStorage.setItem("company_token", `company_token_${Date.now()}`);
+      localStorage.setItem("company_data", JSON.stringify(newCompany));
+      router.push("/company");
+      return;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FD] flex flex-col justify-center items-center p-4 sm:p-6 font-sans">
-      {/* Brand Header */}
-      <Link href="/" className="flex items-center gap-3 mb-6 group">
-        <div className="relative w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center bg-white border border-[#3B3588]/10 shadow-sm transition-transform group-hover:scale-105">
-          <Image
-            src={logoImg}
-            alt="Visionary Interns Club Logo"
-            width={44}
-            height={44}
-            className="object-contain"
-            priority
-          />
-        </div>
-        <span className="text-xl font-black text-[#1E1B4B] tracking-tight uppercase">
-          Visionary Interns Club
-        </span>
-      </Link>
-
-      {/* Main Card */}
-      <div className="w-full max-w-lg bg-white border border-[#3B3588]/10 rounded-[32px] shadow-xl p-8 sm:p-10">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight">
-            Create an Account
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Join the network as a student or register as a hiring company.
-          </p>
+    <div className="min-h-screen bg-[#F8F9FD] flex items-center justify-center p-4 font-sans">
+      <div className="bg-white border border-[#3B3588]/10 rounded-[32px] p-8 sm:p-10 w-full max-w-md shadow-xl space-y-6">
+        <div className="text-center space-y-2">
+          <div className="relative w-12 h-12 mx-auto rounded-2xl overflow-hidden border border-[#3B3588]/10 shadow-sm flex items-center justify-center bg-white">
+            <Image src="/logo.jpg" alt="VIC Logo" width={48} height={48} className="object-contain" priority />
+          </div>
+          {/* <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#202960]/5 text-[#202960] text-[10px] font-black uppercase tracking-wider">
+            <Sparkles className="w-3 h-3" /> Registration Portal
+          </div> */}
+          <h1 className="text-2xl font-black text-[#1E1B4B]">Create an Account</h1>
+          <p className="text-xs text-slate-500">Register as a student applicant or corporate hiring partner.</p>
         </div>
 
-        {/* Role Switcher */}
-        <div className="grid grid-cols-2 gap-2 p-1.5 bg-[#EDF0FF] rounded-2xl mb-6">
+        {/* Dual Role Selector Tabs */}
+        <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-[#F8F9FD] rounded-2xl border border-slate-200/60 text-xs font-bold">
           <button
             type="button"
-            onClick={() => {
-              setRole("STUDENT");
-              setError(null);
-            }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              role === "STUDENT"
-                ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                : "text-slate-600 hover:text-[#202960]"
+            onClick={() => { setRole("STUDENT"); setError(null); }}
+            className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
+              role === "STUDENT" ? "bg-[#202960] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <GraduationCap className="w-4 h-4" /> Student
+            <User className="w-3.5 h-3.5" /> Student
           </button>
           <button
             type="button"
-            onClick={() => {
-              setRole("COMPANY");
-              setError(null);
-            }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              role === "COMPANY"
-                ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                : "text-slate-600 hover:text-[#202960]"
+            onClick={() => { setRole("COMPANY"); setError(null); }}
+            className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
+              role === "COMPANY" ? "bg-[#202960] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Building2 className="w-4 h-4" /> Company / Recruiter
+            <Building2 className="w-3.5 h-3.5" /> Recruiter
           </button>
         </div>
 
         {error && (
-          <div className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
-            {error}
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs font-medium">
           {role === "STUDENT" ? (
-            <div>
-              <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                Full Name *
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ash"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                Company Name *
-              </label>
-              <div className="relative">
-                <Building2 className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Tech Innovations Corp"
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
-                />
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-              {role === "COMPANY" ? "Work Email Address *" : "Email Address *"}
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-              <input
-                type="email"
-                required
-                placeholder={role === "COMPANY" ? "hr@company.com" : "student@example.com"}
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-              Password *
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Minimum 6 characters"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
-              />
-            </div>
-          </div>
-
-          {role === "COMPANY" && (
             <>
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                  Company Website
-                </label>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Full Name *</label>
                 <div className="relative">
-                  <Globe className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                  <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
                   <input
-                    type="url"
-                    placeholder="https://company.example.com"
-                    value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
+                    type="text"
+                    required
+                    placeholder="e.g. Ashley Johnson"
+                    value={studentForm.name}
+                    onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                  About Organization
-                </label>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Email Address *</label>
                 <div className="relative">
-                  <FileText className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                  <textarea
-                    rows={2}
-                    placeholder="Brief description of your company's core focus..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-sm focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="student@vic.edu"
+                    value={studentForm.email}
+                    onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Branch / Department</label>
+                <div className="relative">
+                  <BookOpen className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Computer Science & Engineering"
+                    value={studentForm.department}
+                    onChange={(e) => setStudentForm({ ...studentForm, department: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Password *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={studentForm.password}
+                    onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Company Name *</label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Visionary Interns Club  "
+                    value={companyForm.companyName}
+                    onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Recruiter Work Email *</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="recruiter@vic.com"
+                    value={companyForm.email}
+                    onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Company Website Domain</label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="url"
+                    placeholder="https://vic.in"
+                    value={companyForm.website}
+                    onChange={(e) => setCompanyForm({ ...companyForm, website: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Headquarters Location</label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Bengaluru, Karnataka"
+                    value={companyForm.location}
+                    onChange={(e) => setCompanyForm({ ...companyForm, location: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">Password *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={companyForm.password}
+                    onChange={(e) => setCompanyForm({ ...companyForm, password: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
                   />
                 </div>
               </div>
@@ -266,31 +283,18 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-sm shadow-lg shadow-[#202960]/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-6 cursor-pointer disabled:opacity-50"
+            className="w-full py-3 bg-[#202960] hover:bg-[#2E2A72] text-white font-bold rounded-xl transition shadow-md shadow-[#202960]/20 flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                Register as {role === "COMPANY" ? "Recruiter" : "Student"}
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
+            {loading ? "Creating..." : `Create ${role === "STUDENT" ? "Student" : "Recruiter"} Account`}
+            <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-500 space-y-3">
-          <div>
-            Already have an account?{" "}
-            <Link href="/signin" className="font-bold text-[#202960] hover:underline">
-              Sign In
-            </Link>
-          </div>
-          <div>
-            <Link href="/" className="text-slate-400 hover:text-slate-600 transition">
-              ← Back to Home
-            </Link>
-          </div>
+        <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
+          Already have an account?{" "}
+          <Link href="/signin" className="font-bold text-[#202960] hover:underline">
+            Sign in here
+          </Link>
         </div>
       </div>
     </div>

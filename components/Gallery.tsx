@@ -1,6 +1,6 @@
 const gallery = [
   { title: "Learning Together", image: "/gallery/photo1.jpeg" },
-  { title: "Building Projects", image: "/gallery/photo2.jpeg" },
+  { title: "Group Discussion ", image: "/gallery/photo2.jpeg" },
   { title: "Mentorship & Growth", image: "/gallery/photo3.jpeg" },
   { title: "Career Opportunities", image: "/gallery/4.jpeg" },
 ];

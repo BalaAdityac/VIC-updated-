@@ -6,14 +6,11 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import logoImg from "../public/logo.jpg";
 
-const navItems = [
-  { label: "Home", href: "#home" },
-  { label: "About Us", href: "#about" },
-  { label: "Gallery", href: "#gallery" },
-  { label: "Why Us", href: "#why-us" },
-  { label: "Internship Search", href: "#internship-search" },
-  { label: "Student Skill Up", href: "#student-skill-up" },
-  { label: "Contact Us", href: "#contact" },
+const navLinks = [
+  { name: 'Home', href: '/' },
+  { name: 'About Us', href: '/about' },
+  { name: 'Gallery', href: '/gallery' },
+  { name: 'Contact Us', href: '/contact' },
 ];
 
 export default function Navbar() {
@@ -48,17 +45,18 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Navigation Links */}
+        {/* Desktop Navigation Links */}
         <nav className="hidden lg:flex items-center gap-5 xl:gap-7 ml-10 font-bold text-xs xl:text-sm text-[#1E1B4B]/70">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="hover:text-[#2E2A72] transition-colors whitespace-nowrap"
-            >
-              {item.label}
-            </Link>
+        {navLinks.map((item) => (
+          <Link
+           key={item.href}
+          href={item.href}
+          className="hover:text-[#1E1B4B] transition-colors"
+           >
+          {item.name}
+          </Link>
           ))}
-        </nav>
+          </nav>
 
         {/* Auth Buttons */}
         <div className="hidden md:flex items-center gap-2">
@@ -97,14 +95,14 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden absolute left-3 right-3 top-[72px] rounded-3xl border border-[#3B3588]/10 bg-[#F8F9FD] p-5 shadow-2xl">
           <nav className="flex flex-col gap-2">
-            {navItems.map((item) => (
+            {navLinks.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={closeMenu}
                 className="rounded-2xl px-4 py-3 font-bold text-[#1E1B4B] hover:bg-[#E5E9FF]"
               >
-                {item.label}
+                {item.name}
               </Link>
             ))}
 

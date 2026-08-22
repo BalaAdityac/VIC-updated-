@@ -2,10 +2,8 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import About from "@/components/About";
 import Gallery from "@/components/Gallery";
-import WhyChooseVIC from "@/components/WhyChooseVIC";
 import ExploreVIC from "@/components/ExploreVIC";
 import Scenario from "@/components/Scenario";
-import StudentSkillUp from "@/components/StudentSkillUp";
 import FinalCTA from "@/components/FinalCTA";
 import Footer from "@/components/Footer";
 
@@ -17,10 +15,8 @@ export default function Home() {
         <Hero />
         <About />
         <Gallery />
-        <WhyChooseVIC />
         <ExploreVIC />
         <Scenario />
-        <StudentSkillUp />
         <FinalCTA />
       </main>
       <Footer />

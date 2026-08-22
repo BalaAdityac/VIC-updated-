@@ -28,6 +28,6 @@ export default function Dashboard(){
  <div className="twocol lower"><Card title="Education" action="Manage">{data.education.length?data.education.map(e=><div className="item" key={e.id}><GraduationCap/><div><b>{e.degree} — {e.branch}</b><small>{e.college} · CGPA {e.cgpa} · {e.passingYear}</small></div></div>):<Empty/>}</Card>
  <Card title="Skills" action="Manage"><div className="skills">{data.skills.map(s=><b key={s.id}>{s.name}</b>)}<button><Plus/> Add Skill</button></div></Card></div>
  <Card title="Recent Projects" action="View All"><div>{data.projects.length?data.projects.map(p=><div className="project" key={p.id}><FolderKanban/><div><b>{p.title}</b><p>{p.description}</p><small>{p.technology}</small></div><span>{p.github&&<a href={p.github} target="_blank">GitHub</a>}{p.liveLink&&<a href={p.liveLink} target="_blank">Live Demo</a>}</span></div>):<Empty/>}</div></Card>
- <div className="copyright">© 2026 Visionary Interns Club · Student Portal</div></section></main></div>}
+ <div className="copyright">© 2026 Tenar · Student Portal</div></section></main></div>}
 function Card({title,action,children}:{title:string;action:string;children:React.ReactNode}){return <section className="card"><div className="head"><h3>{title}</h3><button>{action}</button></div>{children}</section>}
 function Empty(){return <div className="empty">No data added yet.<button><Plus/> Add</button></div>}

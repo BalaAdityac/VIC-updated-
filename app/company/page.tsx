@@ -34,8 +34,16 @@ import {
   MapPin,
   Save,
   CheckCircle2,
-  FileCheck
+  FileCheck,
+  Filter,
+  Eye,
+  Send,
+  Phone,
+  ShieldCheck,
+  ShieldAlert,
+  Lock
 } from "lucide-react";
+import { clearCompanySession } from "@/lib/authSession";
 
 function formatDateSafe(dateInput: any): string {
   if (!dateInput) return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -78,20 +86,20 @@ function formatStipend(val: any): string {
 }
 
 export default function CompanyDashboard() {
+  const [mounted, setMounted] = useState(false);
+  const [isSuspended, setIsSuspended] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "jobs" | "applications" | "interviews" | "profile">("overview");
 
-  // Search State
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
 
-  // Notifications State
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  // Modal & Posting State
+  // Post Role Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [postError, setPostError] = useState<string | null>(null);
 
   // Edit Role Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -110,35 +118,51 @@ export default function CompanyDashboard() {
   // Delete Confirmation Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [jobToDelete, setJobToDelete] = useState<any | null>(null);
-
-  // Job-Specific View Applicants Modal State
   const [selectedJobForApplicants, setSelectedJobForApplicants] = useState<any | null>(null);
+
+  // Deep Candidate Inspection Drawer
+  const [inspectedCandidate, setInspectedCandidate] = useState<any | null>(null);
+
+  // Custom Offer Modal State
+  const [offerModalCandidate, setOfferModalCandidate] = useState<any | null>(null);
+  const [offerFormData, setOfferFormData] = useState({
+    stipend: "25000",
+    joiningDate: "2026-09-01",
+    customNote: "We were impressed by your technical interview performance and are excited to welcome you to our team."
+  });
 
   // Schedule Interview Modal State
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
   const [interviewForm, setInterviewForm] = useState({
     roundName: "Technical Systems Round",
-    date: "2026-08-20",
+    date: "2026-08-28",
     time: "14:30",
     meetingUrl: "https://meet.google.com/vic-recruitment-room"
   });
 
-  // Company Profile Form State
+  // Company Profile State
   const [profile, setProfile] = useState({
-    companyName: "Accenture",
-    email: "accenture@gmail.com",
-    website: "https://accenture.com",
-    location: "Bengaluru, Karnataka, India",
-    industry: "Enterprise Software, Cloud & Consulting",
-    tagline: "Let there be change.",
-    registrationNumber: "CIN-U72200KA2026PTC109",
-    description: "Global management consulting and professional services firm."
+    companyName: "",
+    email: "",
+    phone: "",
+    website: "",
+    location: "",
+    industry: "",
+    companySize: "11-50 Employees",
+    foundedYear: "2026",
+    registrationNumber: "",
+    tagline: "",
+    linkedinUrl: "",
+    twitterUrl: "",
+    cultureBenefits: "",
+    techStack: "",
+    description: ""
   });
 
   const [profileSaved, setProfileSaved] = useState(false);
 
-  // Real-time Data Arrays
+  // Live Scoped State Arrays
   const [jobs, setJobs] = useState<any[]>([]);
   const [applicants, setApplicants] = useState<any[]>([]);
   const [interviews, setInterviews] = useState<any[]>([]);
@@ -154,7 +178,6 @@ export default function CompanyDashboard() {
     description: ""
   });
 
-  // Cross-Tab Broadcast Helper
   const notifyPipeline = useCallback((payload: { type: string; data?: any }) => {
     try {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -162,23 +185,51 @@ export default function CompanyDashboard() {
         bc.postMessage(payload);
         setTimeout(() => bc.close(), 100);
       }
-    } catch (e) {}
+    } catch {}
     window.dispatchEvent(new CustomEvent("vic_pipeline_sync", { detail: payload }));
   }, []);
 
-  // SYNCHRONIZED PIPELINE (Strictly Company-Scoped & Deduplicated)
-  const syncPipelineData = useCallback(async () => {
-    const safeCompanyName = String(profile.companyName || "").trim().toLowerCase();
-
-    // 1. Resolve Applicants (Strictly Scoped)
-    let myLiveApplicants: any[] = [];
+  const checkSuspensionStatus = useCallback((compName: string, compEmail: string) => {
     try {
-      const storedApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
-      myLiveApplicants = storedApps.filter((a: any) => {
-        const appCompany = String(a.company || "").trim().toLowerCase();
-        return appCompany === safeCompanyName || (safeCompanyName === "accenture" && appCompany.includes("accenture"));
-      });
-    } catch (e) {}
+      const blockedList: string[] = JSON.parse(localStorage.getItem("vic_blocked_entities") || "[]");
+      const isNameBlocked = compName ? blockedList.includes(compName.trim().toLowerCase()) : false;
+      const isEmailBlocked = compEmail ? blockedList.includes(compEmail.trim().toLowerCase()) : false;
+      setIsSuspended(isNameBlocked || isEmailBlocked);
+    } catch {
+      setIsSuspended(false);
+    }
+  }, []);
+
+  // SYNCHRONIZED PIPELINE
+  const syncPipelineData = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    let activeCompName = "";
+    let activeEmail = "";
+    try {
+      const stored = localStorage.getItem("company_data");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.companyName) activeCompName = parsed.companyName;
+        if (parsed.email) activeEmail = parsed.email;
+      }
+    } catch {}
+
+    checkSuspensionStatus(activeCompName, activeEmail);
+
+    const rawName = activeCompName.trim().toLowerCase();
+
+    // 1. Resolve Applicants
+    let myLiveApplicants: any[] = [];
+    if (rawName) {
+      try {
+        const storedApps = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+        myLiveApplicants = storedApps.filter((a: any) => {
+          const appComp = String(a.company || "").trim().toLowerCase();
+          return appComp === rawName;
+        });
+      } catch {}
+    }
     setApplicants(myLiveApplicants);
 
     // 2. Resolve Interviews
@@ -190,66 +241,42 @@ export default function CompanyDashboard() {
             id: intv.id,
             applicationId: app.id,
             candidateName: app.name || "Candidate",
+            candidateEmail: app.email,
             role: app.role || "Engineering Intern",
-            company: app.company || profile.companyName,
+            company: app.company || activeCompName,
             roundName: intv.roundName,
             date: formatDateSafe(intv.date || intv.scheduledAt),
             time: intv.time || (intv.scheduledAt ? formatDateTimeSafe(intv.scheduledAt) : "2:30 PM"),
-            meetingUrl: intv.meetingUrl,
-            status: intv.status || "SCHEDULED"
+            meetingUrl: intv.meetingUrl || "https://meet.google.com/vic-recruitment-room",
+            status: intv.status || "SCHEDULED",
+            feedback: intv.feedback || ""
           });
         });
       }
     });
     setInterviews(aggregatedInterviews);
 
-    // 3. Resolve Jobs (Backend + Local with Composite Deduplication)
-    let backendJobs: any[] = [];
-    try {
-      const jobsRes = await fetch("http://127.0.0.1:3000/api/internships?status=ACTIVE").catch(() => null);
-      if (jobsRes && jobsRes.ok) {
-        const jobsData = await jobsRes.json();
-        if (Array.isArray(jobsData.internships)) {
-          backendJobs = jobsData.internships
-            .filter((j: any) => {
-              const comp = String(j.company?.companyName || "").trim().toLowerCase();
-              return comp === safeCompanyName || (safeCompanyName === "accenture" && comp.includes("accenture"));
-            })
-            .map((j: any) => ({
-              id: j.id,
-              title: j.title,
-              company: j.company?.companyName || profile.companyName,
-              location: j.location || "Bengaluru",
-              mode: j.mode || "HYBRID",
-              stipend: formatStipend(j.stipend),
-              durationMonths: j.durationMonths || 6,
-              deadline: "Open until filled",
-              description: j.description || "",
-              skills: Array.isArray(j.skills) ? j.skills : ["General Engineering"],
-              status: j.status || "ACTIVE"
-            }));
-        }
-      }
-    } catch (e) {}
-
+    // 3. Resolve Custom Jobs
     let localJobs: any[] = [];
-    try {
-      const customJobsStr = localStorage.getItem("vic_custom_jobs");
-      if (customJobsStr) {
-        const parsed = JSON.parse(customJobsStr);
-        if (Array.isArray(parsed)) {
-          localJobs = parsed.filter((j: any) => {
-            const comp = String(j.company || "").trim().toLowerCase();
-            return comp === safeCompanyName || (safeCompanyName === "accenture" && comp.includes("accenture"));
-          });
+    if (rawName) {
+      try {
+        const customJobsStr = localStorage.getItem("vic_custom_jobs");
+        if (customJobsStr) {
+          const parsed = JSON.parse(customJobsStr);
+          if (Array.isArray(parsed)) {
+            localJobs = parsed.filter((j: any) => {
+              const comp = String(j.company || "").trim().toLowerCase();
+              return comp === rawName;
+            });
+          }
         }
-      }
-    } catch (e) {}
+      } catch {}
+    }
 
     const deletedIds = new Set(JSON.parse(localStorage.getItem("vic_deleted_jobs") || "[]"));
-
     const mergedJobsMap = new Map();
-    [...backendJobs, ...localJobs].forEach((job) => {
+
+    localJobs.forEach((job) => {
       if (!deletedIds.has(job.id)) {
         const dedupeKey = String(job.title).trim().toLowerCase();
         mergedJobsMap.set(dedupeKey, job);
@@ -257,8 +284,6 @@ export default function CompanyDashboard() {
     });
 
     let finalJobs = Array.from(mergedJobsMap.values());
-
-    // Accurately compute applicants count per job
     finalJobs = finalJobs.map((job) => {
       const matchCount = myLiveApplicants.filter(
         (app) =>
@@ -269,25 +294,33 @@ export default function CompanyDashboard() {
     });
 
     setJobs(finalJobs);
-  }, [profile.companyName]);
+  }, [checkSuspensionStatus]);
 
   useEffect(() => {
+    setMounted(true);
+
     const storedCompany = localStorage.getItem("company_data");
     if (storedCompany) {
       try {
         const parsed = JSON.parse(storedCompany);
-        setProfile((prev) => ({
-          ...prev,
-          companyName: parsed.companyName || prev.companyName,
-          email: parsed.email || prev.email,
-          website: parsed.website || prev.website,
-          location: parsed.location || prev.location,
-          industry: parsed.industry || prev.industry,
-          tagline: parsed.tagline || prev.tagline,
-          registrationNumber: parsed.registrationNumber || prev.registrationNumber,
-          description: parsed.description || prev.description
-        }));
-      } catch (e) {}
+        setProfile({
+          companyName: parsed.companyName || "",
+          email: parsed.email || "",
+          phone: parsed.phone || "",
+          website: parsed.website || "",
+          location: parsed.location || "Bengaluru, Karnataka, India",
+          industry: parsed.industry || "Software & Technology Services",
+          companySize: parsed.companySize || "11-50 Employees",
+          foundedYear: parsed.foundedYear || "2026",
+          registrationNumber: parsed.registrationNumber || "",
+          tagline: parsed.tagline || "",
+          linkedinUrl: parsed.linkedinUrl || "",
+          twitterUrl: parsed.twitterUrl || "",
+          cultureBenefits: parsed.cultureBenefits || "Direct mentorship, certificate of completion, pre-placement offer (PPO) opportunities.",
+          techStack: parsed.techStack || "React, TypeScript, Node.js, Python",
+          description: parsed.description || ""
+        });
+      } catch {}
     }
 
     syncPipelineData();
@@ -298,20 +331,9 @@ export default function CompanyDashboard() {
         bc = new BroadcastChannel("vic_realtime_pipeline");
         bc.onmessage = (event) => {
           syncPipelineData();
-          if (event.data?.type === "APPLICATION_SUBMITTED" && event.data?.data?.name) {
-            setNotifications((prev) => [
-              {
-                id: Date.now(),
-                text: `New application received from ${event.data.data.name} for ${event.data.data.role}!`,
-                time: "Just now",
-                read: false
-              },
-              ...prev
-            ]);
-          }
         };
       }
-    } catch (e) {}
+    } catch {}
 
     const handleLocalSync = () => syncPipelineData();
     window.addEventListener("vic_pipeline_sync", handleLocalSync);
@@ -322,17 +344,79 @@ export default function CompanyDashboard() {
       window.removeEventListener("vic_pipeline_sync", handleLocalSync);
       window.removeEventListener("storage", handleLocalSync);
     };
-  }, [syncPipelineData, profile.companyName]);
+  }, [syncPipelineData]);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSuspended) return;
+
     localStorage.setItem("company_data", JSON.stringify(profile));
+
+    try {
+      const regCompanies = JSON.parse(localStorage.getItem("vic_registered_companies") || "[]");
+      const updated = regCompanies.map((c: any) => {
+        if (c.email?.toLowerCase() === profile.email.toLowerCase()) {
+          return { ...c, ...profile };
+        }
+        return c;
+      });
+      localStorage.setItem("vic_registered_companies", JSON.stringify(updated));
+    } catch {}
+
     setProfileSaved(true);
     notifyPipeline({ type: "COMPANY_PROFILE_UPDATED", data: profile });
     setTimeout(() => setProfileSaved(false), 3000);
+    syncPipelineData();
   };
 
-  const handleDecision = (candidate: any, newStatus: "ACCEPTED" | "REJECTED") => {
+  const handleDispatchOfferSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSuspended || !offerModalCandidate) return;
+
+    try {
+      const storedApps: any[] = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+      const updatedApps = storedApps.map((app) => {
+        if (
+          app.id === offerModalCandidate.id ||
+          (String(app.email).toLowerCase() === String(offerModalCandidate.email).toLowerCase() &&
+            app.role === offerModalCandidate.role)
+        ) {
+          return {
+            ...app,
+            status: "OFFERED",
+            stipend: formatStipend(offerFormData.stipend),
+            joiningDate: formatDateSafe(offerFormData.joiningDate),
+            offerNote: offerFormData.customNote
+          };
+        }
+        return app;
+      });
+
+      localStorage.setItem("vic_applications", JSON.stringify(updatedApps));
+
+      const studentNotifs: any[] = JSON.parse(localStorage.getItem("vic_student_notifications") || "[]");
+      const decisionNotif = {
+        id: Date.now(),
+        candidateEmail: offerModalCandidate.email,
+        text: `Official Offer Issued! ${profile.companyName} has extended an appointment for "${offerModalCandidate.role}" with monthly stipend ${formatStipend(offerFormData.stipend)}.`,
+        time: "Just now",
+        read: false,
+        type: "ACCEPTED"
+      };
+      localStorage.setItem("vic_student_notifications", JSON.stringify([decisionNotif, ...studentNotifs]));
+
+      notifyPipeline({
+        type: "DECISION_UPDATED",
+        data: { candidateEmail: offerModalCandidate.email, newStatus: "ACCEPTED", role: offerModalCandidate.role }
+      });
+
+      setOfferModalCandidate(null);
+      syncPipelineData();
+    } catch {}
+  };
+
+  const handleRejectCandidate = (candidate: any) => {
+    if (isSuspended) return;
     try {
       const storedApps: any[] = JSON.parse(localStorage.getItem("vic_applications") || "[]");
       const updatedApps = storedApps.map((app) => {
@@ -340,7 +424,7 @@ export default function CompanyDashboard() {
           app.id === candidate.id ||
           (String(app.email).toLowerCase() === String(candidate.email).toLowerCase() && app.role === candidate.role)
         ) {
-          return { ...app, status: newStatus };
+          return { ...app, status: "REJECTED" };
         }
         return app;
       });
@@ -351,36 +435,51 @@ export default function CompanyDashboard() {
       const decisionNotif = {
         id: Date.now(),
         candidateEmail: candidate.email,
-        text:
-          newStatus === "ACCEPTED"
-            ? `🎉 Congratulations ${candidate.name}! ${profile.companyName} has reviewed your interview and issued an official Offer for "${candidate.role}"!`
-            : `Application update: Your candidacy with ${profile.companyName} for "${candidate.role}" has concluded.`,
+        text: `Application update: Your candidacy with ${profile.companyName} for "${candidate.role}" has concluded.`,
         time: "Just now",
         read: false,
-        type: newStatus
+        type: "REJECTED"
       };
       localStorage.setItem("vic_student_notifications", JSON.stringify([decisionNotif, ...studentNotifs]));
 
       notifyPipeline({
         type: "DECISION_UPDATED",
-        data: { candidateEmail: candidate.email, newStatus, role: candidate.role }
+        data: { candidateEmail: candidate.email, newStatus: "REJECTED", role: candidate.role }
       });
 
-      setNotifications((prev) => [
-        {
-          id: Date.now(),
-          text: `Candidate ${candidate.name} marked as ${newStatus} for ${candidate.role}.`,
-          time: "Just now",
-          read: false
-        },
-        ...prev
-      ]);
-
       syncPipelineData();
-    } catch (err) {}
+    } catch {}
+  };
+
+  const handleUpdateInterviewEvaluation = (interviewId: string, evaluation: "PASSED" | "FAILED") => {
+    if (isSuspended) return;
+    try {
+      const storedApps: any[] = JSON.parse(localStorage.getItem("vic_applications") || "[]");
+      const updatedApps = storedApps.map((app) => {
+        if (Array.isArray(app.interviews)) {
+          const matched = app.interviews.some((i: any) => i.id === interviewId);
+          if (matched) {
+            const updatedIntvs = app.interviews.map((i: any) =>
+              i.id === interviewId ? { ...i, status: evaluation === "PASSED" ? "ROUND_PASSED" : "ROUND_FAILED" } : i
+            );
+            return {
+              ...app,
+              interviews: updatedIntvs,
+              status: evaluation === "PASSED" ? "INTERVIEW_PASSED" : "REJECTED"
+            };
+          }
+        }
+        return app;
+      });
+
+      localStorage.setItem("vic_applications", JSON.stringify(updatedApps));
+      notifyPipeline({ type: "INTERVIEW_EVALUATED", data: { interviewId, evaluation } });
+      syncPipelineData();
+    } catch {}
   };
 
   const handleOpenEditModal = (job: any) => {
+    if (isSuspended) return;
     setEditingJob(job);
     const rawStipend = typeof job.stipend === "string" ? job.stipend.replace(/[^0-9]/g, "") : String(job.stipend || "");
     setEditFormData({
@@ -398,7 +497,7 @@ export default function CompanyDashboard() {
 
   const handleEditRoleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingJob) return;
+    if (isSuspended || !editingJob) return;
 
     const skillList = editFormData.skills
       ? editFormData.skills.split(",").map((s) => s.trim()).filter(Boolean)
@@ -430,20 +529,11 @@ export default function CompanyDashboard() {
 
     setIsEditModalOpen(false);
     setEditingJob(null);
+    syncPipelineData();
   };
 
-  const handleConfirmDeleteJob = async () => {
-    if (!jobToDelete) return;
-
-    const token = localStorage.getItem("company_token");
-    if (token && !String(jobToDelete.id).startsWith("job-")) {
-      try {
-        await fetch(`http://127.0.0.1:3000/api/internships/${jobToDelete.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(() => null);
-      } catch (e) {}
-    }
+  const handleConfirmDeleteJob = () => {
+    if (isSuspended || !jobToDelete) return;
 
     const deletedIds = JSON.parse(localStorage.getItem("vic_deleted_jobs") || "[]");
     if (!deletedIds.includes(jobToDelete.id)) {
@@ -464,7 +554,7 @@ export default function CompanyDashboard() {
 
   const handleScheduleInterviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCandidate) return;
+    if (isSuspended || !selectedCandidate) return;
 
     const newInterview = {
       id: `intv-${Date.now()}`,
@@ -500,12 +590,12 @@ export default function CompanyDashboard() {
       const intvNotif = {
         id: Date.now(),
         candidateEmail: selectedCandidate.email,
-        text: `📅 ${profile.companyName} has scheduled "${interviewForm.roundName}" with you for ${interviewForm.date} at ${interviewForm.time}.`,
+        text: `Interview Scheduled: ${profile.companyName} has invited you to "${interviewForm.roundName}" on ${interviewForm.date} at ${interviewForm.time}.`,
         time: "Just now",
         read: false
       };
       localStorage.setItem("vic_student_notifications", JSON.stringify([intvNotif, ...studentNotifs]));
-    } catch (err) {}
+    } catch {}
 
     notifyPipeline({
       type: "INTERVIEW_SCHEDULED",
@@ -523,23 +613,22 @@ export default function CompanyDashboard() {
     if (!searchQuery.trim()) return jobs;
     const q = searchQuery.toLowerCase();
     return jobs.filter(
-      (j) =>
-        j.title?.toLowerCase().includes(q) ||
-        j.location?.toLowerCase().includes(q) ||
-        j.mode?.toLowerCase().includes(q)
+      (j) => j.title?.toLowerCase().includes(q) || j.location?.toLowerCase().includes(q) || j.mode?.toLowerCase().includes(q)
     );
   }, [jobs, searchQuery]);
 
   const filteredApplicants = useMemo(() => {
-    if (!searchQuery.trim()) return applicants;
-    const q = searchQuery.toLowerCase();
-    return applicants.filter(
-      (a) =>
+    return applicants.filter((a) => {
+      const matchRole = roleFilter === "ALL" || a.role === roleFilter;
+      const q = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !q ||
         a.name?.toLowerCase().includes(q) ||
         a.role?.toLowerCase().includes(q) ||
-        a.email?.toLowerCase().includes(q)
-    );
-  }, [applicants, searchQuery]);
+        a.email?.toLowerCase().includes(q);
+      return matchRole && matchQuery;
+    });
+  }, [applicants, roleFilter, searchQuery]);
 
   const jobSpecificApplicants = useMemo(() => {
     if (!selectedJobForApplicants) return [];
@@ -556,87 +645,51 @@ export default function CompanyDashboard() {
     setNotifications(notifications.map((n) => ({ ...n, read: true })));
   };
 
-  const handlePostRole = async (e: React.FormEvent) => {
+  const handlePostRole = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSuspended) return;
     setIsPosting(true);
-    setPostError(null);
 
-    const token = localStorage.getItem("company_token");
     const skillList = formData.skills
       ? formData.skills.split(",").map((s) => s.trim()).filter(Boolean)
       : ["React", "TypeScript"];
 
-    try {
-      if (token) {
-        await fetch("http://127.0.0.1:3000/api/internships", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            title: formData.title,
-            description: formData.description || "Hands-on internship position with direct team mentorship.",
-            location: formData.location,
-            mode: formData.mode,
-            stipend: Number(formData.stipend),
-            durationMonths: Number(formData.durationMonths),
-            skills: skillList,
-            status: "ACTIVE"
-          })
-        }).catch(() => null);
-      }
+    const formattedMode =
+      formData.mode === "HYBRID" ? "Hybrid" : formData.mode === "REMOTE" ? "Remote" : "On-Site";
 
-      const formattedMode =
-        formData.mode === "HYBRID" ? "Hybrid" : formData.mode === "REMOTE" ? "Remote" : "On-Site";
+    const createdJob = {
+      id: `job-${Date.now()}`,
+      title: formData.title,
+      company: profile.companyName || "Organization",
+      mode: formattedMode,
+      location: formData.location || "Bengaluru",
+      stipend: formatStipend(formData.stipend),
+      applicantsCount: 0,
+      status: "ACTIVE",
+      postedAt: "Just now",
+      deadline: "Open until filled",
+      skills: skillList,
+      description: formData.description
+    };
 
-      const createdJob = {
-        id: `job-${Date.now()}`,
-        title: formData.title,
-        company: profile.companyName,
-        mode: formattedMode,
-        location: formData.location,
-        stipend: formatStipend(formData.stipend),
-        applicantsCount: 0,
-        status: "ACTIVE",
-        postedAt: "Just now",
-        deadline: "Open until filled",
-        skills: skillList,
-        description: formData.description
-      };
+    const existingCustom = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
+    localStorage.setItem("vic_custom_jobs", JSON.stringify([createdJob, ...existingCustom]));
 
-      const existingCustom = JSON.parse(localStorage.getItem("vic_custom_jobs") || "[]");
-      const updatedCustom = [createdJob, ...existingCustom];
-      localStorage.setItem("vic_custom_jobs", JSON.stringify(updatedCustom));
+    notifyPipeline({ type: "JOB_POSTED", data: { title: createdJob.title } });
 
-      notifyPipeline({ type: "JOB_POSTED", data: { title: createdJob.title } });
-
-      setNotifications([
-        {
-          id: Date.now(),
-          text: `Position "${formData.title}" published successfully to student job board`,
-          time: "Just now",
-          read: false
-        },
-        ...notifications
-      ]);
-
-      setFormData({
-        title: "",
-        mode: "HYBRID",
-        location: "Bengaluru",
-        stipend: "",
-        durationMonths: "6",
-        skills: "",
-        description: ""
-      });
-      setIsCreateModalOpen(false);
-      setActiveTab("jobs");
-    } catch (err: any) {
-      setPostError(err.message || "Failed to post internship role");
-    } finally {
-      setIsPosting(false);
-    }
+    setFormData({
+      title: "",
+      mode: "HYBRID",
+      location: "Bengaluru",
+      stipend: "",
+      durationMonths: "6",
+      skills: "",
+      description: ""
+    });
+    setIsCreateModalOpen(false);
+    setIsPosting(false);
+    syncPipelineData();
+    setActiveTab("jobs");
   };
 
   const companyInitials = useMemo(() => {
@@ -647,6 +700,88 @@ export default function CompanyDashboard() {
       : profile.companyName.substring(0, 2).toUpperCase();
   }, [profile.companyName]);
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FD] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#202960]" />
+      </div>
+    );
+  }
+
+  // SUSPENSION LOCKOUT VIEW
+  if (isSuspended) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
+        <aside className="w-72 border-r border-red-200 bg-white p-6 flex flex-col justify-between shadow-sm">
+          <div className="space-y-6">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="relative w-9 h-9 shrink-0 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-red-200 shadow-sm">
+                <Image src="/logo.jpg" alt="Logo" width={36} height={36} className="object-contain" priority />
+              </div>
+              <div className="min-w-0">
+                <div className="font-black text-xs tracking-tight text-[#1E1B4B] uppercase whitespace-nowrap">Visionary Interns Club</div>
+                <div className="text-[10px] font-bold text-red-600 whitespace-nowrap">Company Portal</div>
+              </div>
+            </Link>
+
+            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200">
+              <div className="font-bold text-xs text-red-900">{profile.companyName || "Organization"}</div>
+              <div className="text-[10px] text-red-600 font-bold uppercase mt-0.5">Account Suspended</div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-red-100 flex items-center justify-between">
+            <div className="text-xs text-slate-400">{profile.email}</div>
+            <Link
+              href="/"
+              onClick={() => clearCompanySession()}
+              className="p-2 text-slate-400 hover:text-red-600 transition cursor-pointer"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </Link>
+          </div>
+        </aside>
+
+        <main className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-lg bg-white border-2 border-red-200 rounded-[32px] p-8 sm:p-10 shadow-2xl text-center space-y-5">
+            <div className="w-16 h-16 rounded-3xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-sm">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-[#1E1B4B]">Organization Account Suspended</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Recruitment authorization for <strong className="text-slate-800">{profile.companyName}</strong> has been temporarily suspended by the SuperAdmin Governance Council.
+              </p>
+            </div>
+
+            <div className="p-4 bg-red-50/60 border border-red-200 rounded-2xl text-xs text-red-800 text-left space-y-1.5 font-medium">
+              <div className="flex items-center gap-2 font-bold text-red-900">
+                <Lock className="w-3.5 h-3.5" /> Enforcement Restrictions:
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-red-700">
+                <li>All active job vacancies have been hidden from student explorers.</li>
+                <li>Candidate applications and evaluation actions are locked.</li>
+                <li>Offer dispatch capabilities are disabled.</li>
+              </ul>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/"
+                onClick={() => clearCompanySession()}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-md"
+              >
+                <LogOut className="w-4 h-4" /> Sign Out from Portal
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
       {mobileMenuOpen && (
@@ -656,7 +791,7 @@ export default function CompanyDashboard() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar Navigation */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-50 w-72 md:w-64 border-r border-[#3B3588]/10 bg-white p-6 flex flex-col justify-between shadow-2xl md:shadow-sm transform transition-transform duration-300 ease-in-out ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -664,30 +799,17 @@ export default function CompanyDashboard() {
       >
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="relative w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center bg-white border border-[#3B3588]/10 shadow-sm transition-transform group-hover:scale-105">
-                <Image
-                  src="/logo.jpg"
-                  alt="Visionary Interns Club Logo"
-                  width={40}
-                  height={40}
-                  className="object-contain"
-                  priority
-                />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="relative w-9 h-9 shrink-0 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-[#3B3588]/10 shadow-sm">
+                <Image src="/logo.jpg" alt="Logo" width={36} height={36} className="object-contain" priority />
               </div>
-              <div>
-                <div className="font-black text-sm tracking-tight text-[#1E1B4B] uppercase">
-                  Visionary Interns
-                </div>
-                <div className="text-[11px] font-bold text-[#3B3588]">Company Portal</div>
+              <div className="min-w-0">
+                <div className="font-black text-xs tracking-tight text-[#1E1B4B] uppercase whitespace-nowrap">Visionary Interns Club</div>
+                <div className="text-[10px] font-bold text-[#3B3588] whitespace-nowrap">Company Portal</div>
               </div>
             </Link>
 
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              className="md:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100"
-            >
+            <button onClick={() => setMobileMenuOpen(false)} className="md:hidden p-2 rounded-xl text-slate-500 cursor-pointer">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -701,9 +823,8 @@ export default function CompanyDashboard() {
                 {companyInitials}
               </div>
               <div className="text-left">
-                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">{profile.companyName}</div>
-                <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                  ● Verified Partner
+                <div className="font-bold text-xs text-[#1E1B4B] truncate max-w-[120px]">
+                  {profile.companyName || "Organization"}
                 </div>
               </div>
             </div>
@@ -712,70 +833,45 @@ export default function CompanyDashboard() {
 
           <nav className="space-y-1.5 text-xs font-bold">
             <button
-              onClick={() => {
-                setActiveTab("overview");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "overview"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              onClick={() => { setActiveTab("overview"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition cursor-pointer ${
+                activeTab === "overview" ? "bg-[#202960] text-white shadow-md" : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF]"
               }`}
             >
               <Building2 className="w-4 h-4" /> Overview
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab("jobs");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "jobs"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              onClick={() => { setActiveTab("jobs"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition cursor-pointer ${
+                activeTab === "jobs" ? "bg-[#202960] text-white shadow-md" : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF]"
               }`}
             >
               <Briefcase className="w-4 h-4" /> Job Postings ({jobs.length})
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab("applications");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "applications"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              onClick={() => { setActiveTab("applications"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition cursor-pointer ${
+                activeTab === "applications" ? "bg-[#202960] text-white shadow-md" : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF]"
               }`}
             >
               <Users className="w-4 h-4" /> Applicants ({applicants.length})
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab("interviews");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "interviews"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              onClick={() => { setActiveTab("interviews"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition cursor-pointer ${
+                activeTab === "interviews" ? "bg-[#202960] text-white shadow-md" : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF]"
               }`}
             >
               <Video className="w-4 h-4" /> Scheduled Rounds ({interviews.length})
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab("profile");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
-                activeTab === "profile"
-                  ? "bg-[#202960] text-white shadow-md shadow-[#202960]/20"
-                  : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF] hover:text-[#202960]"
+              onClick={() => { setActiveTab("profile"); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition cursor-pointer ${
+                activeTab === "profile" ? "bg-[#202960] text-white shadow-md" : "text-[#1E1B4B]/70 hover:bg-[#EDF0FF]"
               }`}
             >
               <FileCheck className="w-4 h-4" /> Company Profile
@@ -785,25 +881,18 @@ export default function CompanyDashboard() {
 
         <div className="pt-4 border-t border-[#3B3588]/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold text-xs flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-[#202960] text-white font-bold text-xs flex items-center justify-center">
               {companyInitials}
             </div>
             <div className="text-left">
-              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]" title={profile.companyName}>
-                {profile.companyName}
-              </div>
-              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={profile.email}>
-                {profile.email}
-              </div>
+              <div className="text-xs font-bold text-[#1E1B4B] truncate max-w-[110px]">{profile.companyName || "Organization"}</div>
+              <div className="text-[10px] text-slate-400 truncate max-w-[110px]">{profile.email}</div>
             </div>
           </div>
           <Link
             href="/"
-            onClick={() => {
-              localStorage.removeItem("company_token");
-              localStorage.removeItem("company_data");
-            }}
-            className="p-2 text-slate-400 hover:text-red-600 transition"
+            onClick={() => clearCompanySession()}
+            className="p-2 text-slate-400 hover:text-red-600 transition cursor-pointer"
             title="Logout"
           >
             <LogOut className="w-4 h-4" />
@@ -811,24 +900,17 @@ export default function CompanyDashboard() {
         </div>
       </aside>
 
-      {/* Main Header & Body */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0">
         <header className="h-16 md:h-18 px-4 sm:px-8 border-b border-[#3B3588]/10 bg-white flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 rounded-xl text-[#202960] hover:bg-[#EDF0FF] transition"
-            >
+            <button onClick={() => setMobileMenuOpen(true)} className="md:hidden p-2 rounded-xl text-[#202960] cursor-pointer">
               <Menu className="w-6 h-6" />
             </button>
-
             <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-              <span className="hidden sm:inline">Company</span>
-              <span className="hidden sm:inline">/</span>
-              <span className="text-[#1E1B4B] capitalize">
-                {activeTab === "profile" ? "Company Profile" : activeTab}
-              </span>
+              <span>Company</span>
+              <span>/</span>
+              <span className="text-[#1E1B4B] capitalize">{activeTab}</span>
             </div>
           </div>
 
@@ -837,16 +919,13 @@ export default function CompanyDashboard() {
               <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search candidates, roles..."
+                placeholder="Search candidate, role..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-44 sm:w-64 pl-10 pr-8 py-2 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800 transition"
+                className="w-44 sm:w-64 pl-10 pr-8 py-2 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
               />
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-                >
+                <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -855,49 +934,29 @@ export default function CompanyDashboard() {
             <div className="relative">
               <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] transition cursor-pointer"
+                className="relative p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
-                )}
+                {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
               </button>
 
               {isNotifOpen && (
                 <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white border border-[#3B3588]/15 rounded-3xl shadow-2xl p-4 z-50">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-[#1E1B4B]">Notifications</span>
-                      {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#EDF0FF] text-[#202960] text-[10px] font-black">
-                          {unreadCount} new
-                        </span>
-                      )}
-                    </div>
+                    <span className="font-bold text-sm text-[#1E1B4B]">Notifications</span>
                     {unreadCount > 0 && (
-                      <button
-                        onClick={markAllNotifsRead}
-                        className="text-[11px] font-bold text-[#202960] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
+                      <button onClick={markAllNotifsRead} className="text-[11px] font-bold text-[#202960] hover:underline flex items-center gap-1 cursor-pointer">
                         <CheckCheck className="w-3.5 h-3.5" /> Mark all read
                       </button>
                     )}
                   </div>
-
                   <div className="space-y-2 max-h-72 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400 text-xs">
-                        No notifications yet.
-                      </div>
+                      <div className="text-center py-6 text-slate-400 text-xs">No notifications yet.</div>
                     ) : (
                       notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`p-3 rounded-2xl text-xs transition ${
-                            n.read ? "bg-[#F8F9FD] text-slate-500" : "bg-[#EDF0FF]/60 text-slate-800 font-medium"
-                          }`}
-                        >
-                          <p className="line-clamp-2">{n.text}</p>
+                        <div key={n.id} className="p-3 rounded-2xl bg-[#EDF0FF]/60 text-slate-800 font-medium text-xs">
+                          <p>{n.text}</p>
                           <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
                         </div>
                       ))
@@ -909,124 +968,60 @@ export default function CompanyDashboard() {
 
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-xs shadow-md shadow-[#202960]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white font-bold text-xs shadow-md cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Post New Role</span>
-              <span className="sm:hidden">Post</span>
+              <span>Post New Role</span>
             </button>
           </div>
         </header>
 
-        {/* Dynamic Content Views */}
         <div className="p-4 sm:p-8 space-y-8 max-w-7xl">
-          {searchQuery && (
-            <div className="p-3 bg-[#EDF0FF] rounded-2xl border border-[#3B3588]/15 text-xs text-[#1E1B4B] flex items-center justify-between">
-              <span>
-                Filtering results for: <strong>&ldquo;{searchQuery}&rdquo;</strong>
-              </span>
-              <button onClick={() => setSearchQuery("")} className="font-bold text-[#202960] hover:underline text-xs">
-                Clear filter
-              </button>
-            </div>
-          )}
-
-          {/* 1. OVERVIEW TAB */}
+          {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
             <>
               <section className="bg-gradient-to-br from-[#EDF0FF] via-white to-[#F8F9FD] border border-[#3B3588]/10 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#202960]/5 text-[#202960] text-[11px] font-black uppercase tracking-wider">
-                    <Sparkles className="w-3 h-3" /> ATS Recruitment Suite
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B] tracking-tight">
-                    Welcome back, {profile.companyName}.
+                  <h1 className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">
+                    Welcome, {profile.companyName || "Partner"}!
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
-                    Review candidate submissions, evaluate interview rounds, and manage your partner profile.
+                    Review candidate submissions, evaluate technical rounds, and issue verified appointment offers.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="px-5 py-3 rounded-full bg-[#202960] text-white font-bold text-xs hover:bg-[#2E2A72] transition shadow-md shadow-[#202960]/20 cursor-pointer"
+                  className="px-5 py-3 rounded-full bg-[#202960] text-white font-bold text-xs hover:bg-[#2E2A72] shadow-md cursor-pointer"
                 >
                   Create New Position
                 </button>
               </section>
 
-              <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                <div
-                  onClick={() => setActiveTab("jobs")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Roles</span>
-                    <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                      <Briefcase className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">{jobs.length}</div>
-                  <div className="text-[11px] text-emerald-600 font-bold mt-1">● Live on Job Board</div>
+              <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div onClick={() => setActiveTab("jobs")} className="bg-white border border-[#3B3588]/10 p-5 rounded-3xl cursor-pointer hover:shadow-md transition">
+                  <div className="text-xs font-bold text-slate-500 uppercase">Active Roles</div>
+                  <div className="text-2xl font-black text-[#1E1B4B] mt-1">{jobs.length}</div>
                 </div>
-
-                <div
-                  onClick={() => setActiveTab("applications")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Applicants</span>
-                    <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                      <Users className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">{applicants.length}</div>
-                  <div className="text-[11px] text-indigo-600 font-bold mt-1">Real-time Submissions</div>
+                <div onClick={() => setActiveTab("applications")} className="bg-white border border-[#3B3588]/10 p-5 rounded-3xl cursor-pointer hover:shadow-md transition">
+                  <div className="text-xs font-bold text-slate-500 uppercase">Applicants</div>
+                  <div className="text-2xl font-black text-[#1E1B4B] mt-1">{applicants.length}</div>
                 </div>
-
-                <div
-                  onClick={() => setActiveTab("interviews")}
-                  className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition cursor-pointer"
-                >
-                  <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Interviews</span>
-                    <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                      <Video className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">{interviews.length}</div>
-                  <div className="text-[11px] text-amber-600 font-bold mt-1">Rounds scheduled</div>
+                <div onClick={() => setActiveTab("interviews")} className="bg-white border border-[#3B3588]/10 p-5 rounded-3xl cursor-pointer hover:shadow-md transition">
+                  <div className="text-xs font-bold text-slate-500 uppercase">Interviews</div>
+                  <div className="text-2xl font-black text-[#1E1B4B] mt-1">{interviews.length}</div>
                 </div>
-
-                <div className="bg-white border border-[#3B3588]/10 p-5 sm:p-6 rounded-3xl shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center justify-between text-slate-400 mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Offers Sent</span>
-                    <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                      <ClipboardCheck className="w-4 h-4" />
-                    </div>
+                <div onClick={() => setActiveTab("applications")} className="bg-white border border-[#3B3588]/10 p-5 rounded-3xl cursor-pointer hover:shadow-md transition">
+                  <div className="text-xs font-bold text-slate-500 uppercase">Offers Sent</div>
+                  <div className="text-2xl font-black text-[#1E1B4B] mt-1">
+                    {applicants.filter((a) => a.status === "OFFERED" || a.status === "HIRED / ACCEPTED").length}
                   </div>
-                  <div className="text-2xl sm:text-3xl font-black text-[#1E1B4B]">
-                    {applicants.filter((a) => a.status === "ACCEPTED" || a.status === "OFFERED").length}
-                  </div>
-                  <div className="text-[11px] text-purple-600 font-bold mt-1">Hired Candidates</div>
                 </div>
               </section>
 
               <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-lg font-black text-[#1E1B4B]">Live Internship Postings</h2>
-                    <p className="text-xs text-slate-500">Live positions open for student applications.</p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab("jobs")}
-                    className="text-xs font-bold text-[#202960] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    View All <ArrowUpRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
+                <h2 className="text-lg font-black text-[#1E1B4B] mb-4">Active Vacancies</h2>
                 <div className="overflow-x-auto">
-                  {filteredJobs.length === 0 ? (
+                  {jobs.length === 0 ? (
                     <div className="text-center py-10 text-slate-400 text-xs">
                       No internship roles posted yet. Click &ldquo;+ Post New Role&rdquo; to publish your first position.
                     </div>
@@ -1045,21 +1040,19 @@ export default function CompanyDashboard() {
                         {filteredJobs.map((j) => (
                           <tr key={j.id} className="hover:bg-[#F8F9FD]/60 transition">
                             <td className="py-4 font-bold text-[#1E1B4B] text-sm">{j.title}</td>
-                            <td className="py-4 text-slate-500">
-                              {j.location} • {j.mode}
-                            </td>
+                            <td className="py-4 text-slate-500">{j.location} • {j.mode}</td>
                             <td className="py-4 font-bold text-[#202960]">{formatStipend(j.stipend)}</td>
                             <td className="py-4 font-semibold text-slate-600">
                               <button
                                 onClick={() => setSelectedJobForApplicants(j)}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EDF0FF] hover:bg-[#202960] text-[#202960] hover:text-white font-bold text-xs transition cursor-pointer"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EDF0FF] text-[#202960] font-bold text-xs cursor-pointer hover:bg-[#202960] hover:text-white transition"
                               >
                                 {j.applicantsCount || 0} Applicants <ArrowUpRight className="w-3 h-3" />
                               </button>
                             </td>
                             <td className="py-4">
-                              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                                {j.status}
+                              <span className="px-3 py-1 rounded-full text-[10px] font-black border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                {j.status || "ACTIVE"}
                               </span>
                             </td>
                           </tr>
@@ -1072,19 +1065,14 @@ export default function CompanyDashboard() {
             </>
           )}
 
-          {/* 2. JOB POSTINGS TAB */}
+          {/* JOBS TAB */}
           {activeTab === "jobs" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h2 className="text-xl font-black text-[#1E1B4B]">Job Postings Management</h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Create, edit, delete, and inspect candidates for each internship role.
-                  </p>
-                </div>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-black text-[#1E1B4B]">Job Postings ({filteredJobs.length})</h2>
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#202960] text-white font-bold text-xs shadow-md shadow-[#202960]/20 hover:bg-[#2E2A72] transition"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#202960] text-white font-bold text-xs shadow-md cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Create New Role
                 </button>
@@ -1092,56 +1080,38 @@ export default function CompanyDashboard() {
 
               {filteredJobs.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
-                  No job postings created yet. Click &ldquo;Create New Role&rdquo; to publish your first internship.
+                  No job postings created yet. Click &ldquo;Create New Role&rdquo; to publish your first internship vacancy.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filteredJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-3 flex flex-col justify-between hover:shadow-md transition"
-                    >
-                      <div className="space-y-2.5">
+                    <div key={job.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] space-y-3 flex flex-col justify-between">
+                      <div>
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="font-bold text-sm text-[#1E1B4B]">{job.title}</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {job.location} • {job.mode}
-                            </p>
+                            <p className="text-xs text-slate-500">{job.location} • {job.mode}</p>
                           </div>
-
                           <div className="flex items-center gap-1.5">
-                            <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-black">
-                              {job.status || "ACTIVE"}
-                            </span>
-
                             <button
                               onClick={() => handleOpenEditModal(job)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#202960] hover:bg-white transition"
-                              title="Edit Internship"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#202960] hover:bg-white cursor-pointer"
+                              title="Edit Role"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-
                             <button
-                              onClick={() => {
-                                setJobToDelete(job);
-                                setIsDeleteModalOpen(true);
-                              }}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-                              title="Delete Internship"
+                              onClick={() => { setJobToDelete(job); setIsDeleteModalOpen(true); }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                              title="Delete Role"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
-
-                        <div className="flex flex-wrap gap-1.5">
-                          {(Array.isArray(job.skills) ? job.skills : []).map((s: string, i: number) => (
-                            <span
-                              key={i}
-                              className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600"
-                            >
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {(job.skills || []).map((s: string, idx: number) => (
+                            <span key={idx} className="px-2 py-0.5 rounded bg-white text-[10px] font-semibold text-slate-600 border border-slate-200">
                               {s}
                             </span>
                           ))}
@@ -1150,11 +1120,9 @@ export default function CompanyDashboard() {
 
                       <div className="flex items-center justify-between pt-3 border-t border-[#3B3588]/10 text-xs">
                         <span className="font-black text-[#202960]">{formatStipend(job.stipend)}</span>
-
                         <button
-                          type="button"
                           onClick={() => setSelectedJobForApplicants(job)}
-                          className="font-bold text-[#202960] bg-[#EDF0FF] hover:bg-[#202960] hover:text-white px-3 py-1.5 rounded-full text-xs transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          className="font-bold text-[#202960] bg-[#EDF0FF] hover:bg-[#202960] hover:text-white px-3 py-1.5 rounded-full text-xs transition flex items-center gap-1.5 cursor-pointer"
                         >
                           <Users className="w-3.5 h-3.5" />
                           <span>{job.applicantsCount || 0} Applicants</span>
@@ -1168,122 +1136,104 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* 3. APPLICANTS TAB */}
+          {/* APPLICANTS TAB */}
           {activeTab === "applications" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-xl font-black text-[#1E1B4B]">Candidate Submissions ({filteredApplicants.length})</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Evaluate candidates, schedule interviews, and issue Accept (Offer) or Reject decisions in real time.
-                </p>
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs font-bold text-[#1E1B4B]"
+                  >
+                    <option value="ALL">All Roles ({applicants.length})</option>
+                    {jobs.map((j) => (
+                      <option key={j.id} value={j.title}>{j.title}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
                 {filteredApplicants.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 text-xs">
-                    No candidate applications received yet. Applications will appear here automatically when students apply.
+                    No candidate applications received yet. Applications will appear automatically when students apply.
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs">
                     <thead className="text-[11px] uppercase font-bold text-slate-400 border-b border-slate-100">
                       <tr>
-                        <th className="pb-3.5 font-bold">Candidate Name</th>
+                        <th className="pb-3.5 font-bold">Candidate</th>
                         <th className="pb-3.5 font-bold">Applied Role</th>
-                        <th className="pb-3.5 font-bold">Date Applied</th>
-                        <th className="pb-3.5 font-bold">Resume / Profile</th>
+                        <th className="pb-3.5 font-bold">Applied Date</th>
                         <th className="pb-3.5 font-bold">Status</th>
-                        <th className="pb-3.5 font-bold text-right">Recruitment Decision</th>
+                        <th className="pb-3.5 font-bold text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {filteredApplicants.map((app) => {
-                        const isDecided = app.status === "ACCEPTED" || app.status === "OFFERED" || app.status === "REJECTED";
-
-                        return (
-                          <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
-                            <td className="py-4">
-                              <div className="font-bold text-[#1E1B4B] text-sm">{app.name}</div>
-                              <div className="text-slate-400 text-[11px]">{app.email}</div>
-                            </td>
-                            <td className="py-4 text-slate-600 font-semibold">{app.role}</td>
-                            <td className="py-4 text-slate-500">{app.appliedAt || app.appliedDate}</td>
-                            <td className="py-4">
-                              <a
-                                href={app.resumeUrl || "#"}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[#202960] font-bold text-xs hover:underline"
+                      {filteredApplicants.map((app) => (
+                        <tr key={app.id} className="hover:bg-[#F8F9FD]/60 transition">
+                          <td className="py-4">
+                            <div className="font-bold text-[#1E1B4B] text-sm">{app.name}</div>
+                            <div className="text-slate-400 text-[11px]">{app.email}</div>
+                          </td>
+                          <td className="py-4 font-semibold text-slate-600">{app.role}</td>
+                          <td className="py-4 text-slate-500">{app.appliedAt || app.appliedDate}</td>
+                          <td className="py-4">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black border ${
+                              app.status === "OFFERED" || app.status === "HIRED / ACCEPTED"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : app.status === "REJECTED"
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            }`}>
+                              {app.status}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => setInspectedCandidate(app)}
+                                className="p-1.5 rounded-lg bg-[#EDF0FF] text-[#202960] hover:bg-[#202960] hover:text-white transition cursor-pointer"
+                                title="Audit Profile Details"
                               >
-                                <FileText className="w-3.5 h-3.5 text-indigo-600" /> View Resume
-                              </a>
-                            </td>
-                            <td className="py-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                                  app.status === "ACCEPTED" || app.status === "OFFERED"
-                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                    : app.status === "REJECTED"
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : app.status === "INTERVIEWING"
-                                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                }`}
-                              >
-                                {app.status}
-                              </span>
-                            </td>
-                            <td className="py-4 text-right">
-                              {isDecided ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold ${
-                                    app.status === "ACCEPTED" || app.status === "OFFERED"
-                                      ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
-                                      : "text-red-700 bg-red-50 border border-red-200"
-                                  }`}
-                                >
-                                  {app.status === "ACCEPTED" || app.status === "OFFERED" ? (
-                                    <>
-                                      <CheckCircle className="w-3 h-3" /> Offer Extended
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="w-3 h-3" /> Candidate Rejected
-                                    </>
-                                  )}
-                                </span>
-                              ) : (
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    onClick={() => handleDecision(app, "ACCEPTED")}
-                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-full transition shadow-sm flex items-center gap-1 cursor-pointer"
-                                    title="Accept candidate and issue offer"
-                                  >
-                                    <CheckCircle className="w-3 h-3" /> Accept
-                                  </button>
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
 
+                              {app.status !== "OFFERED" && app.status !== "HIRED / ACCEPTED" && app.status !== "REJECTED" && (
+                                <>
                                   <button
-                                    onClick={() => handleDecision(app, "REJECTED")}
-                                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[11px] font-bold rounded-full transition flex items-center gap-1 cursor-pointer"
-                                    title="Reject application"
+                                    onClick={() => {
+                                      setOfferModalCandidate(app);
+                                      setOfferFormData((prev) => ({ ...prev, stipend: String(app.stipend || "25000").replace(/[^0-9]/g, "") }));
+                                    }}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-full transition cursor-pointer flex items-center gap-1"
                                   >
-                                    <XCircle className="w-3 h-3" /> Reject
+                                    <Send className="w-3 h-3" /> Issue Offer
                                   </button>
-
+                                  <button
+                                    onClick={() => handleRejectCandidate(app)}
+                                    className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[11px] font-bold rounded-full cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
                                   <button
                                     onClick={() => {
                                       setSelectedCandidate(app);
                                       setIsScheduleModalOpen(true);
                                     }}
-                                    className="px-3.5 py-1.5 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
+                                    className="px-3.5 py-1.5 bg-[#202960] text-white text-[11px] font-bold rounded-full cursor-pointer"
                                   >
                                     Schedule
                                   </button>
-                                </div>
+                                </>
                               )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 )}
@@ -1291,45 +1241,39 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* 4. SCHEDULED ROUNDS TAB */}
+          {/* INTERVIEWS TAB */}
           {activeTab === "interviews" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-[#1E1B4B]">Scheduled Interview Rounds</h2>
-                <p className="text-xs text-slate-500 mt-1">Live interview schedules, meet links, and candidate evaluations.</p>
-              </div>
-
+              <h2 className="text-xl font-black text-[#1E1B4B]">Scheduled Interview Evaluations</h2>
               {interviews.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 text-xs">
-                  No interview rounds scheduled yet. Use the Schedule Round button in the Applicants tab to create meetings.
-                </div>
+                <div className="text-center py-12 text-slate-400 text-xs">No technical rounds active.</div>
               ) : (
                 <div className="space-y-4">
                   {interviews.map((intv) => (
-                    <div
-                      key={intv.id}
-                      className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] flex flex-col sm:flex-row justify-between sm:items-center gap-4"
-                    >
+                    <div key={intv.id} className="p-5 rounded-2xl border border-[#3B3588]/10 bg-[#F8F9FD] flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-[#1E1B4B]">{intv.candidateName}</span>
                           <span className="text-xs text-slate-400">• {intv.role}</span>
                         </div>
                         <p className="text-xs font-semibold text-[#202960]">{intv.roundName}</p>
-                        <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5" /> {intv.time}
-                        </p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {intv.time}</p>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <a
-                          href={intv.meetingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-4 py-2 bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold rounded-full flex items-center gap-1.5 transition"
-                        >
+                        <a href={intv.meetingUrl} target="_blank" rel="noreferrer" className="px-4 py-2 bg-[#202960] text-white text-xs font-bold rounded-full flex items-center gap-1.5">
                           Join Room <ExternalLink className="w-3.5 h-3.5" />
                         </a>
+                        {intv.status === "SCHEDULED" && (
+                          <>
+                            <button onClick={() => handleUpdateInterviewEvaluation(intv.id, "PASSED")} className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold rounded-full cursor-pointer">
+                              Pass Round ✓
+                            </button>
+                            <button onClick={() => handleUpdateInterviewEvaluation(intv.id, "FAILED")} className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-bold rounded-full cursor-pointer">
+                              Fail ✗
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1338,14 +1282,16 @@ export default function CompanyDashboard() {
             </section>
           )}
 
-          {/* 5. COMPANY PROFILE TAB */}
+          {/* 5. COMPLETE COMPANY PROFILE TAB */}
           {activeTab === "profile" && (
             <section className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8 max-w-4xl">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
                 <div>
-                  <h2 className="text-xl font-black text-[#1E1B4B]">Company Profile & Organization Details</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-black text-[#1E1B4B]">Company Profile & Branding</h2>
+                  </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Manage your organization identity, recruitment contact, verification credentials, and bio.
+                    Manage your organizational identity, corporate registration, contact details, tech stack, and intern perks.
                   </p>
                 </div>
                 {profileSaved && (
@@ -1355,136 +1301,247 @@ export default function CompanyDashboard() {
                 )}
               </div>
 
-              <form onSubmit={handleSaveProfile} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Company Name *
-                    </label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+              <form onSubmit={handleSaveProfile} className="space-y-8 text-xs font-medium">
+                {/* 1. Basic Company Information */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-black uppercase text-indigo-950 tracking-wider">
+                    1. Basic Organization Details
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Company Name *
+                      </label>
+                      <div className="relative">
+                        <Building2 className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          value={profile.companyName}
+                          onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Industry & Specialization *
+                      </label>
                       <input
                         type="text"
                         required
-                        value={profile.companyName}
-                        onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                        placeholder="e.g. IT Services, Cloud Architecture, Edge AI"
+                        value={profile.industry}
+                        onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Official Contact Email *
-                    </label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Company Size
+                      </label>
+                      <select
+                        value={profile.companySize}
+                        onChange={(e) => setProfile({ ...profile, companySize: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960] text-slate-800"
+                      >
+                        <option value="1-10 Employees">1-10 Employees (Early Startup)</option>
+                        <option value="11-50 Employees">11-50 Employees (Seed Stage)</option>
+                        <option value="51-200 Employees">51-200 Employees (Growth Stage)</option>
+                        <option value="201-1,000 Employees">201-1,000 Employees (Mid-Market)</option>
+                        <option value="1,001-10,000 Employees">1,001-10,000 Employees (Enterprise)</option>
+                        <option value="10,000+ Employees">10,000+ Employees (Global Conglomerate)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Founded Year
+                      </label>
                       <input
-                        type="email"
-                        required
-                        value={profile.email}
-                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                        type="text"
+                        placeholder="e.g. 2026"
+                        value={profile.foundedYear}
+                        onChange={(e) => setProfile({ ...profile, foundedYear: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Official Website URL
-                    </label>
-                    <div className="relative">
-                      <Globe className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
+                {/* 2. Official Contact & Verification */}
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <h3 className="text-xs font-black uppercase text-indigo-950 tracking-wider">
+                    2. Recruitment Contact & Compliance
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Official Recruiter Email *
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          value={profile.email}
+                          onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Corporate Phone Number
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                        <input
+                          type="tel"
+                          placeholder="+91 80 1234 5678"
+                          value={profile.phone}
+                          onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Corporate ID (CIN / GST / Tax ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CIN-U72200KA2026PTC109"
+                        value={profile.registrationNumber}
+                        onChange={(e) => setProfile({ ...profile, registrationNumber: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960] font-mono text-indigo-900 font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Location & Web Presence */}
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <h3 className="text-xs font-black uppercase text-indigo-950 tracking-wider">
+                    3. Headquarters & Online Presence
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Headquarters Location *
+                      </label>
+                      <div className="relative">
+                        <MapPin className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Bengaluru, Karnataka, India"
+                          value={profile.location}
+                          onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        Website URL
+                      </label>
+                      <div className="relative">
+                        <Globe className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                        <input
+                          type="url"
+                          placeholder="https://company.com"
+                          value={profile.website}
+                          onChange={(e) => setProfile({ ...profile, website: e.target.value })}
+                          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                        LinkedIn Profile URL
+                      </label>
                       <input
                         type="url"
-                        placeholder="https://company.io"
-                        value={profile.website}
-                        onChange={(e) => setProfile({ ...profile, website: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Headquarters Location *
-                    </label>
-                    <div className="relative">
-                      <MapPin className="w-4 h-4 absolute left-4 top-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Bengaluru, Karnataka, India"
-                        value={profile.location}
-                        onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                        className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                        placeholder="https://linkedin.com/company/..."
+                        value={profile.linkedinUrl}
+                        onChange={(e) => setProfile({ ...profile, linkedinUrl: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* 4. Tech Stack & Intern Perks */}
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <h3 className="text-xs font-black uppercase text-indigo-950 tracking-wider">
+                    4. Engineering Ecosystem & Culture
+                  </h3>
                   <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Industry & Specialization
+                    <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                      Core Technology Stack (Comma-separated)
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Embedded Systems, Artificial Intelligence, SaaS"
-                      value={profile.industry}
-                      onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
-                      className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      placeholder="e.g. React, Next.js, Node.js, Python, Java, AWS, Kubernetes"
+                      value={profile.techStack}
+                      onChange={(e) => setProfile({ ...profile, techStack: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                      Corporate Registration ID (CIN / GST)
+                    <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                      Internship Perks & Mentorship Benefits
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. CIN-U72200KA2026PTC109"
-                      value={profile.registrationNumber}
-                      onChange={(e) => setProfile({ ...profile, registrationNumber: e.target.value })}
-                      className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
+                      placeholder="e.g. Pre-Placement Offer (PPO), direct architect mentorship, flexible hybrid schedule"
+                      value={profile.cultureBenefits}
+                      onChange={(e) => setProfile({ ...profile, cultureBenefits: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                    Company Tagline / One-Liner
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Innovating embedded telemetry and scalable modern platforms."
-                    value={profile.tagline}
-                    onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] font-semibold text-slate-800"
-                  />
-                </div>
+                  <div>
+                    <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                      Company Tagline / Value Proposition
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Navigate your next with intelligent cloud and digital platforms."
+                      value={profile.tagline}
+                      onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-2">
-                    About the Organization
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="Describe your engineering teams, product ecosystem, and internship mentorship culture..."
-                    value={profile.description}
-                    onChange={(e) => setProfile({ ...profile, description: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960] leading-relaxed text-slate-800 font-medium"
-                  />
+                  <div>
+                    <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                      About the Organization & Mission
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder="Describe your engineering teams, products, and culture..."
+                      value={profile.description}
+                      onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+                      className="w-full p-3 rounded-xl bg-[#F8F9FD] border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#202960] leading-relaxed"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-slate-100">
                   <button
                     type="submit"
-                    className="px-6 py-3 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 transition cursor-pointer"
+                    className="px-6 py-2.5 bg-[#202960] hover:bg-[#2E2A72] text-white font-bold rounded-full transition shadow-md shadow-[#202960]/20 flex items-center gap-2 cursor-pointer"
                   >
-                    <Save className="w-4 h-4" /> Save Profile Details
+                    <Save className="w-4 h-4" /> Save Organization Profile
                   </button>
                 </div>
               </form>
@@ -1492,6 +1549,112 @@ export default function CompanyDashboard() {
           )}
         </div>
       </main>
+
+      {/* CANDIDATE DEEP INSPECTION DRAWER */}
+      {inspectedCandidate && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-xl p-6 sm:p-8 space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-start pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-black text-[#1E1B4B]">{inspectedCandidate.name}</h3>
+                <p className="text-xs text-slate-500">Applicant for {inspectedCandidate.role}</p>
+              </div>
+              <button onClick={() => setInspectedCandidate(null)} className="p-2 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-[#F8F9FD] p-4 rounded-2xl text-xs space-y-3">
+              <div><strong className="text-slate-400 uppercase text-[10px] block">Candidate Email</strong>{inspectedCandidate.email}</div>
+              <div><strong className="text-slate-400 uppercase text-[10px] block">Cover Note to Recruiter</strong>{inspectedCandidate.coverLetter || "No cover note provided."}</div>
+              <div>
+                <strong className="text-slate-400 uppercase text-[10px] block">Resume Attachment</strong>
+                <a href={inspectedCandidate.resumeUrl || "#"} target="_blank" rel="noreferrer" className="text-indigo-600 font-bold hover:underline flex items-center gap-1 mt-1">
+                  <FileText className="w-3.5 h-3.5" /> View Attached Resume
+                </a>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setInspectedCandidate(null)} className="px-5 py-2 text-xs font-bold text-slate-500 cursor-pointer">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM OFFER DISPATCH MODAL */}
+      {offerModalCandidate && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-6 sm:p-8 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-black text-[#1E1B4B]">Issue Official Offer</h3>
+              <button onClick={() => setOfferModalCandidate(null)}><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+
+            <form onSubmit={handleDispatchOfferSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Monthly Stipend (INR)</label>
+                <input type="number" required value={offerFormData.stipend} onChange={(e) => setOfferFormData({ ...offerFormData, stipend: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+              </div>
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Expected Joining Date</label>
+                <input type="date" required value={offerFormData.joiningDate} onChange={(e) => setOfferFormData({ ...offerFormData, joiningDate: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+              </div>
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Personalized Offer Note</label>
+                <textarea rows={3} value={offerFormData.customNote} onChange={(e) => setOfferFormData({ ...offerFormData, customNote: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setOfferModalCandidate(null)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
+                  <Send className="w-3.5 h-3.5" /> Dispatch Offer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SCHEDULE INTERVIEW MODAL */}
+      {isScheduleModalOpen && selectedCandidate && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-[32px] w-full max-w-md p-6 sm:p-8 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-black text-[#1E1B4B]">Schedule Interview Round</h3>
+              <button onClick={() => setIsScheduleModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+
+            <form onSubmit={handleScheduleInterviewSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Round Title</label>
+                <input type="text" required value={interviewForm.roundName} onChange={(e) => setInterviewForm({ ...interviewForm, roundName: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Date</label>
+                  <input type="date" required value={interviewForm.date} onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Time</label>
+                  <input type="time" required value={interviewForm.time} onChange={(e) => setInterviewForm({ ...interviewForm, time: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Meeting URL</label>
+                <input type="url" required value={interviewForm.meetingUrl} onChange={(e) => setInterviewForm({ ...interviewForm, meetingUrl: e.target.value })} className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsScheduleModalOpen(false)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-[#202960] text-white font-bold rounded-xl cursor-pointer">Confirm Schedule</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* EDIT ROLE MODAL */}
       {isEditModalOpen && editingJob && (
@@ -1507,15 +1670,15 @@ export default function CompanyDashboard() {
                   setIsEditModalOpen(false);
                   setEditingJob(null);
                 }}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleEditRoleSubmit} className="space-y-4">
+            <form onSubmit={handleEditRoleSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                   Role Title *
                 </label>
                 <input
@@ -1523,19 +1686,19 @@ export default function CompanyDashboard() {
                   required
                   value={editFormData.title}
                   onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                     Work Mode
                   </label>
                   <select
                     value={editFormData.mode}
                     onChange={(e) => setEditFormData({ ...editFormData, mode: e.target.value })}
-                    className="w-full px-3 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full px-3 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                   >
                     <option value="HYBRID">Hybrid</option>
                     <option value="REMOTE">Remote</option>
@@ -1544,7 +1707,7 @@ export default function CompanyDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                     Location *
                   </label>
                   <input
@@ -1552,14 +1715,14 @@ export default function CompanyDashboard() {
                     required
                     value={editFormData.location}
                     onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                     Monthly Stipend (INR) *
                   </label>
                   <input
@@ -1568,12 +1731,12 @@ export default function CompanyDashboard() {
                     min={0}
                     value={editFormData.stipend}
                     onChange={(e) => setEditFormData({ ...editFormData, stipend: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                  <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                     Duration (Months)
                   </label>
                   <input
@@ -1582,32 +1745,32 @@ export default function CompanyDashboard() {
                     max={24}
                     value={editFormData.durationMonths}
                     onChange={(e) => setEditFormData({ ...editFormData, durationMonths: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                   Required Skills (Comma separated)
                 </label>
                 <input
                   type="text"
                   value={editFormData.skills}
                   onChange={(e) => setEditFormData({ ...editFormData, skills: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
+                <label className="block font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
                   Role Description
                 </label>
                 <textarea
                   rows={3}
                   value={editFormData.description}
                   onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 focus:outline-none focus:ring-2 focus:ring-[#202960]"
                 />
               </div>
 
@@ -1618,7 +1781,7 @@ export default function CompanyDashboard() {
                     setIsEditModalOpen(false);
                     setEditingJob(null);
                   }}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition"
+                  className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1645,9 +1808,7 @@ export default function CompanyDashboard() {
             <div className="text-center space-y-1">
               <h3 className="text-lg font-black text-[#1E1B4B]">Delete Internship?</h3>
               <p className="text-xs text-slate-500">
-                Are you sure you want to delete{" "}
-                <strong className="text-slate-800">&ldquo;{jobToDelete.title}&rdquo;</strong>? This role will be
-                removed immediately from the student explore board.
+                Are you sure you want to delete <strong className="text-slate-800">&ldquo;{jobToDelete.title}&rdquo;</strong>? This role will be removed immediately from the student explore board.
               </p>
             </div>
 
@@ -1658,7 +1819,7 @@ export default function CompanyDashboard() {
                   setIsDeleteModalOpen(false);
                   setJobToDelete(null);
                 }}
-                className="w-1/2 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition"
+                className="w-1/2 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1692,7 +1853,7 @@ export default function CompanyDashboard() {
               </div>
               <button
                 onClick={() => setSelectedJobForApplicants(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1705,7 +1866,7 @@ export default function CompanyDashboard() {
                 </div>
               ) : (
                 jobSpecificApplicants.map((cand) => {
-                  const isDecided = cand.status === "ACCEPTED" || cand.status === "OFFERED" || cand.status === "REJECTED";
+                  const isDecided = cand.status === "ACCEPTED" || cand.status === "OFFERED" || cand.status === "HIRED / ACCEPTED" || cand.status === "REJECTED";
 
                   return (
                     <div
@@ -1733,7 +1894,7 @@ export default function CompanyDashboard() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-3 py-1 rounded-full text-[10px] font-black border ${
-                            cand.status === "ACCEPTED" || cand.status === "OFFERED"
+                            cand.status === "ACCEPTED" || cand.status === "OFFERED" || cand.status === "HIRED / ACCEPTED"
                               ? "bg-purple-50 text-purple-700 border-purple-200"
                               : cand.status === "REJECTED"
                               ? "bg-red-50 text-red-700 border-red-200"
@@ -1748,24 +1909,27 @@ export default function CompanyDashboard() {
                         {isDecided ? (
                           <span
                             className={`px-3 py-1 rounded-full text-[11px] font-bold ${
-                              cand.status === "ACCEPTED" || cand.status === "OFFERED"
-                                ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
-                                : "text-red-700 bg-red-50 border border-red-200"
+                              cand.status === "REJECTED"
+                                ? "text-red-700 bg-red-50 border border-red-200"
+                                : "text-emerald-700 bg-emerald-50 border border-emerald-200"
                             }`}
                           >
-                            {cand.status === "ACCEPTED" || cand.status === "OFFERED" ? "Offer Given" : "Rejected"}
+                            {cand.status === "REJECTED" ? "Rejected" : "Offer Given ✓"}
                           </span>
                         ) : (
                           <>
                             <button
-                              onClick={() => handleDecision(cand, "ACCEPTED")}
+                              onClick={() => {
+                                setOfferModalCandidate(cand);
+                                setOfferFormData((prev) => ({ ...prev, stipend: String(cand.stipend || "25000").replace(/[^0-9]/g, "") }));
+                              }}
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-full transition shadow-sm cursor-pointer"
                             >
-                              Accept
+                              Issue Offer
                             </button>
 
                             <button
-                              onClick={() => handleDecision(cand, "REJECTED")}
+                              onClick={() => handleRejectCandidate(cand)}
                               className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold rounded-full transition cursor-pointer"
                             >
                               Reject
@@ -1792,7 +1956,7 @@ export default function CompanyDashboard() {
             <div className="flex justify-end pt-2 border-t border-slate-100">
               <button
                 onClick={() => setSelectedJobForApplicants(null)}
-                className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition"
+                className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
               >
                 Close
               </button>
@@ -1801,233 +1965,98 @@ export default function CompanyDashboard() {
         </div>
       )}
 
-      {/* SCHEDULE INTERVIEW MODAL */}
-      {isScheduleModalOpen && selectedCandidate && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-md p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-start pb-2 border-b border-slate-100">
-              <div>
-                <h3 className="text-lg font-black text-[#1E1B4B]">Schedule Interview</h3>
-                <p className="text-xs text-slate-500">
-                  Candidate: {selectedCandidate.name} &bull; {selectedCandidate.role}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsScheduleModalOpen(false);
-                  setSelectedCandidate(null);
-                }}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleScheduleInterviewSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                  Interview Round Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={interviewForm.roundName}
-                  onChange={(e) => setInterviewForm({ ...interviewForm, roundName: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={interviewForm.date}
-                    onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Time *
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={interviewForm.time}
-                    onChange={(e) => setInterviewForm({ ...interviewForm, time: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                  Meeting Video URL (Google Meet / Zoom) *
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={interviewForm.meetingUrl}
-                  onChange={(e) => setInterviewForm({ ...interviewForm, meetingUrl: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsScheduleModalOpen(false);
-                    setSelectedCandidate(null);
-                  }}
-                  className="px-4 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 cursor-pointer transition"
-                >
-                  Confirm & Dispatch
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* POST NEW ROLE MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#3B3588]/15 rounded-[32px] w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[32px] w-full max-w-lg p-6 sm:p-8 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <div>
-                <h3 className="text-lg font-black text-[#1E1B4B]">Post New Internship Role</h3>
-                <p className="text-xs text-slate-500">Publish position to active students on Visionary Interns Club</p>
-              </div>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <h3 className="text-base font-black text-[#1E1B4B]">Post Internship Vacancy</h3>
+              <button onClick={() => setIsCreateModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
             </div>
 
-            {postError && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl">
-                {postError}
-              </div>
-            )}
-
-            <form onSubmit={handlePostRole} className="space-y-4">
+            <form onSubmit={handlePostRole} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                  Role Title *
-                </label>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Role Designation *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. AI Systems Engineer Intern"
+                  placeholder="e.g. AI Telemetry Engineer"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Work Mode
-                  </label>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Mode</label>
                   <select
                     value={formData.mode}
                     onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                    className="w-full px-3 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                   >
                     <option value="HYBRID">Hybrid</option>
                     <option value="REMOTE">Remote</option>
                     <option value="ON_SITE">On-Site</option>
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Location *
-                  </label>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Location</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Bengaluru"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                   />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Monthly Stipend (INR) *
-                  </label>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Monthly Stipend (INR)</label>
                   <input
                     type="number"
                     required
-                    min={0}
                     placeholder="25000"
                     value={formData.stipend}
                     onChange={(e) => setFormData({ ...formData, stipend: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                    Duration (Months)
-                  </label>
+                  <label className="block font-bold text-[#1E1B4B] mb-1">Duration (Months)</label>
                   <input
                     type="number"
                     min={1}
-                    max={24}
                     value={formData.durationMonths}
                     onChange={(e) => setFormData({ ...formData, durationMonths: e.target.value })}
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                    className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                   />
                 </div>
               </div>
-
               <div>
-                <label className="block text-xs font-bold text-[#1E1B4B] uppercase tracking-wider mb-1.5">
-                  Required Skills (Comma separated)
-                </label>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Required Skills (Comma separated)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Next.js, Node.js, PostgreSQL"
+                  placeholder="React, Node.js, Python"
                   value={formData.skills}
                   onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+                  className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-[#1E1B4B] mb-1">Job Description</label>
+                <textarea
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full p-2.5 bg-[#F8F9FD] border border-slate-200 rounded-xl"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPosting}
-                  className="px-6 py-2.5 rounded-full bg-[#202960] hover:bg-[#2E2A72] text-white text-xs font-bold shadow-md shadow-[#202960]/20 flex items-center gap-2 cursor-pointer disabled:opacity-50 transition"
-                >
-                  {isPosting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  {isPosting ? "Publishing..." : "Publish Role"}
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="submit" disabled={isPosting} className="px-5 py-2 bg-[#202960] text-white font-bold rounded-xl cursor-pointer">
+                  {isPosting ? "Posting..." : "Publish Vacancy"}
                 </button>
               </div>
             </form>
