@@ -11,9 +11,9 @@ export default function Hero() {
         {/* Left Side */}
         <div className="lg:col-span-7 space-y-6">
           <h1 className="text-4xl sm:text-6xl font-black text-[#1E1B4B] leading-[1.15] tracking-tight">
-            Build Your Skills. <br />
-            <span className="text-[#3B3588]">Find Opportunity.</span> <br />
-            Launch Your Career.
+            Build Your Skills <br />
+            <span className="text-[#3B3588]">Find Opportunity</span> <br />
+            Launch Your Career
           </h1>
 
           <p className="text-base sm:text-lg font-medium text-[#1E1B4B]/70 max-w-lg leading-relaxed">
