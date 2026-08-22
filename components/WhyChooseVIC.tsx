@@ -15,20 +15,20 @@ export default function WhyChooseVIC() {
       <div className="container-vic">
         <div className="mx-auto max-w-3xl text-center">
           <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]"> Why Us </div>
-          <h2 className="section-title mt-4">A vision built around <span className="gradient-text">your growth.</span></h2>
-          <p className="mt-5 text-[#60758A] leading-7">Our vision and mission are at the heart of everything we build for students and aspiring professionals.</p>
+          <h2 className="section-title mt-4">A vision built around <span className="gradient-text">your growth</span></h2>
+          <p className="mt-5 text-[#60758A] leading-7">Our vision and mission are at the heart of everything we build for students and aspiring professionals</p>
         </div>
 
         <div className="mt-12 grid md:grid-cols-2 gap-6">
           <div className="rounded-[2.5rem] bg-white border border-[#E5E9FF] p-8 shadow-sm">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-[#1677FF]">Our Vision</p>
-            <h3 className="mt-4 text-2xl font-black text-[#1E1B4B]">A future where every student can access opportunity.</h3>
-            <p className="mt-4 text-[#60758A] leading-7">We envision an inclusive ecosystem where students can discover their strengths, build confidence, gain practical experience, and connect with opportunities that match their aspirations.</p>
+            <h3 className="mt-4 text-2xl font-black text-[#1E1B4B]">A future where every student can access opportunity</h3>
+            <p className="mt-4 text-[#60758A] leading-7">We envision an inclusive ecosystem where students can discover their strengths, build confidence, gain practical experience, and connect with opportunities that match their aspirations</p>
           </div>
           <div className="rounded-[2.5rem] bg-[#E5E9FF]/70 border border-white p-8 shadow-sm">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-[#3B3588]">Our Mission</p>
-            <h3 className="mt-4 text-2xl font-black text-[#1E1B4B]">Turn potential into skills, experience, and action.</h3>
-            <p className="mt-4 text-[#60758A] leading-7">Our mission is to make career preparation practical and accessible through internships, skill development, mentorship, projects, and a community that helps students move forward.</p>
+            <h3 className="mt-4 text-2xl font-black text-[#1E1B4B]">Turn potential into skills, experience, and action</h3>
+            <p className="mt-4 text-[#60758A] leading-7">Our mission is to make career preparation practical and accessible through internships, skill development, mentorship, projects, and a community that helps students move forward</p>
           </div>
         </div>
 

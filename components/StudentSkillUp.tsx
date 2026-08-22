@@ -9,7 +9,7 @@ export default function StudentSkillUp() {
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <div>
             <div className="font-bold uppercase tracking-[0.2em] text-[#1677FF]">Student Skill Up</div>
-            <h2 className="section-title mt-4">Level up before you <span className="gradient-text">step in.</span></h2>
+            <h2 className="section-title mt-4">Level up before you <span className="gradient-text">step in</span></h2>
             <p className="mt-6 text-lg leading-8 text-[#60758A]">
               Build the confidence and practical skills you need to stand out in internship applications and make the most of your first professional experience.
             </p>
