@@ -4,7 +4,7 @@ export default function FinalCTA() {
   return (
     <section className=" py-20">
       <div className="container-vic">
-        <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-[#FFF1F7] via-[#F4EEFF] to-[#E8F0FF] p-10 text-center text-[#1E1B4B] md:p-20">
+        <div className="relative overflow-hidden rounded-[3rem] bg-gradient-to-br from-[#E8FFF5] via-[#E8F8FF] to-[#EAF0FF] p-10 text-center text-[#16324F] md:p-20">
           <div className="absolute -left-20 -top-20 h-60 w-60 rounded-full bg-white/20 blur-3xl" />
           <div className="absolute -bottom-20 -right-20 h-60 w-60 rounded-full bg-white/20 blur-3xl" />
           <div className="relative">
