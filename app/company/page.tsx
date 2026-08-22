@@ -41,7 +41,8 @@ import {
   Phone,
   ShieldCheck,
   ShieldAlert,
-  Lock
+  Lock,
+  PartyPopper
 } from "lucide-react";
 import { clearCompanySession } from "@/lib/authSession";
 
@@ -94,6 +95,8 @@ export default function CompanyDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
 
+  // Live Toast & Notification States
+  const [liveToast, setLiveToast] = useState<{ title: string; desc: string } | null>(null);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -219,6 +222,20 @@ export default function CompanyDashboard() {
 
     const rawName = activeCompName.trim().toLowerCase();
 
+    // 0. Load Scoped Notifications from LocalStorage
+    try {
+      const storedCompanyNotifs: any[] = JSON.parse(localStorage.getItem("vic_company_notifications") || "[]");
+      const myNotifs = storedCompanyNotifs.filter(
+        (n) =>
+          !n.companyName ||
+          String(n.companyName).trim().toLowerCase() === rawName ||
+          (activeEmail && String(n.companyEmail).trim().toLowerCase() === activeEmail.trim().toLowerCase())
+      );
+      setNotifications(myNotifs);
+    } catch {
+      setNotifications([]);
+    }
+
     // 1. Resolve Applicants
     let myLiveApplicants: any[] = [];
     if (rawName) {
@@ -331,6 +348,66 @@ export default function CompanyDashboard() {
         bc = new BroadcastChannel("vic_realtime_pipeline");
         bc.onmessage = (event) => {
           syncPipelineData();
+
+          let currentComp = "";
+          let currentEmail = "";
+          try {
+            const compObj = JSON.parse(localStorage.getItem("company_data") || "{}");
+            currentComp = compObj.companyName || "";
+            currentEmail = compObj.email || "";
+          } catch {}
+
+          const myComp = currentComp.trim().toLowerCase();
+
+          // 1. Application Submitted Alert
+          if (event.data?.type === "APPLICATION_SUBMITTED" && event.data?.data) {
+            const targetComp = String(event.data.data.company || "").trim().toLowerCase();
+
+            if (targetComp === myComp && myComp.length > 0) {
+              const newNotif = {
+                id: Date.now(),
+                companyName: currentComp,
+                companyEmail: currentEmail,
+                text: `New application received from ${event.data.data.name} for "${event.data.data.role}"!`,
+                time: "Just now",
+                read: false
+              };
+
+              try {
+                const existingNotifs: any[] = JSON.parse(localStorage.getItem("vic_company_notifications") || "[]");
+                localStorage.setItem("vic_company_notifications", JSON.stringify([newNotif, ...existingNotifs]));
+              } catch {}
+
+              setNotifications((prev) => [newNotif, ...prev]);
+              setLiveToast({
+                title: "New Applicant Received!",
+                desc: `${event.data.data.name} applied for "${event.data.data.role}".`
+              });
+            }
+          }
+
+          // 2. Candidate Accepted Offer Alert
+          if (event.data?.type === "OFFER_CONFIRMED" && event.data?.data) {
+            const newNotif = {
+              id: Date.now(),
+              companyName: currentComp,
+              companyEmail: currentEmail,
+              text: `🎉 Offer Confirmed! Candidate (${event.data.data.email}) has accepted the internship offer.`,
+              time: "Just now",
+              read: false
+            };
+
+            try {
+              const existingNotifs: any[] = JSON.parse(localStorage.getItem("vic_company_notifications") || "[]");
+              localStorage.setItem("vic_company_notifications", JSON.stringify([newNotif, ...existingNotifs]));
+            } catch {}
+
+            setNotifications((prev) => [newNotif, ...prev]);
+            setLiveToast({
+              title: "Offer Formally Accepted!",
+              desc: `Candidate ${event.data.data.email} confirmed the offer letter.`
+            });
+          }
         };
       }
     } catch {}
@@ -642,7 +719,19 @@ export default function CompanyDashboard() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllNotifsRead = () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+    const updated = notifications.map((n) => ({ ...n, read: true }));
+    setNotifications(updated);
+    try {
+      const rawStored: any[] = JSON.parse(localStorage.getItem("vic_company_notifications") || "[]");
+      const currentComp = profile.companyName.trim().toLowerCase();
+      const newStored = rawStored.map((n) => {
+        if (String(n.companyName || "").trim().toLowerCase() === currentComp) {
+          return { ...n, read: true };
+        }
+        return n;
+      });
+      localStorage.setItem("vic_company_notifications", JSON.stringify(newStored));
+    } catch {}
   };
 
   const handlePostRole = (e: React.FormEvent) => {
@@ -702,7 +791,7 @@ export default function CompanyDashboard() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#F8F9FD] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F9FD] flex items-center justify-center font-sans">
         <Loader2 className="w-8 h-8 animate-spin text-[#202960]" />
       </div>
     );
@@ -783,7 +872,32 @@ export default function CompanyDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#F8F9FD] text-slate-800 flex flex-col md:flex-row font-sans relative">
+      {/* Floating Live Toast Popup */}
+      {liveToast && (
+        <div className="fixed top-5 right-5 z-50 max-w-sm bg-white border-2 border-indigo-500 rounded-3xl shadow-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top-5">
+          <div className="w-10 h-10 rounded-2xl bg-[#202960] text-white flex items-center justify-center shrink-0 shadow-md">
+            <PartyPopper className="w-5 h-5 text-amber-400" />
+          </div>
+          <div className="space-y-1 flex-1">
+            <h4 className="font-black text-xs text-[#1E1B4B]">{liveToast.title}</h4>
+            <p className="text-[11px] text-slate-500">{liveToast.desc}</p>
+            <button
+              onClick={() => {
+                setActiveTab("applications");
+                setLiveToast(null);
+              }}
+              className="mt-1 px-3 py-1 bg-[#202960] text-white font-bold text-[10px] rounded-full hover:bg-[#2E2A72] cursor-pointer"
+            >
+              Inspect Applicants
+            </button>
+          </div>
+          <button onClick={() => setLiveToast(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
@@ -925,7 +1039,7 @@ export default function CompanyDashboard() {
                 className="w-44 sm:w-64 pl-10 pr-8 py-2 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
+                <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -933,6 +1047,7 @@ export default function CompanyDashboard() {
 
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
                 className="relative p-2.5 rounded-full bg-[#F8F9FD] border border-[#3B3588]/15 text-slate-600 hover:text-[#202960] cursor-pointer"
               >
@@ -950,12 +1065,12 @@ export default function CompanyDashboard() {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                  <div className="space-y-2 max-h-72 overflow-y-auto text-xs">
                     {notifications.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400 text-xs">No notifications yet.</div>
+                      <div className="text-center py-6 text-slate-400">No notifications yet.</div>
                     ) : (
                       notifications.map((n) => (
-                        <div key={n.id} className="p-3 rounded-2xl bg-[#EDF0FF]/60 text-slate-800 font-medium text-xs">
+                        <div key={n.id} className="p-3 rounded-2xl bg-[#EDF0FF]/80 text-slate-800 font-medium">
                           <p>{n.text}</p>
                           <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
                         </div>
@@ -1590,7 +1705,9 @@ export default function CompanyDashboard() {
           <div className="bg-white rounded-[32px] w-full max-w-md p-6 sm:p-8 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-black text-[#1E1B4B]">Issue Official Offer</h3>
-              <button onClick={() => setOfferModalCandidate(null)}><X className="w-5 h-5 text-slate-400" /></button>
+              <button onClick={() => setOfferModalCandidate(null)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleDispatchOfferSubmit} className="space-y-3 text-xs">
@@ -1608,7 +1725,7 @@ export default function CompanyDashboard() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setOfferModalCandidate(null)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="button" onClick={() => setOfferModalCandidate(null)} className="px-4 py-2 font-bold text-slate-500 cursor-pointer">Cancel</button>
                 <button type="submit" className="px-5 py-2 bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
                   <Send className="w-3.5 h-3.5" /> Dispatch Offer
                 </button>
@@ -1624,7 +1741,9 @@ export default function CompanyDashboard() {
           <div className="bg-white rounded-[32px] w-full max-w-md p-6 sm:p-8 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-black text-[#1E1B4B]">Schedule Interview Round</h3>
-              <button onClick={() => setIsScheduleModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
+              <button onClick={() => setIsScheduleModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleScheduleInterviewSubmit} className="space-y-3 text-xs">
@@ -1648,7 +1767,7 @@ export default function CompanyDashboard() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsScheduleModalOpen(false)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="button" onClick={() => setIsScheduleModalOpen(false)} className="px-4 py-2 font-bold text-slate-500 cursor-pointer">Cancel</button>
                 <button type="submit" className="px-5 py-2 bg-[#202960] text-white font-bold rounded-xl cursor-pointer">Confirm Schedule</button>
               </div>
             </form>
@@ -1971,7 +2090,9 @@ export default function CompanyDashboard() {
           <div className="bg-white rounded-[32px] w-full max-w-lg p-6 sm:p-8 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-black text-[#1E1B4B]">Post Internship Vacancy</h3>
-              <button onClick={() => setIsCreateModalOpen(false)}><X className="w-5 h-5 text-slate-400" /></button>
+              <button onClick={() => setIsCreateModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handlePostRole} className="space-y-3.5 text-xs">
@@ -2054,7 +2175,7 @@ export default function CompanyDashboard() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 font-bold text-slate-500">Cancel</button>
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-4 py-2 font-bold text-slate-500 cursor-pointer">Cancel</button>
                 <button type="submit" disabled={isPosting} className="px-5 py-2 bg-[#202960] text-white font-bold rounded-xl cursor-pointer">
                   {isPosting ? "Posting..." : "Publish Vacancy"}
                 </button>

@@ -32,10 +32,10 @@ export default function Hero() {
             </Link>
 
             <Link
-              href="#internship-search"
+              href="#about"
               className="px-8 py-4 bg-[#E5E9FF] hover:bg-[#D9DFFF] text-[#2E2A72] font-bold text-sm rounded-2xl transition-all"
             >
-              Search Internships
+              Explore Overview
             </Link>
           </div>
 

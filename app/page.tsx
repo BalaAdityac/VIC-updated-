@@ -4,7 +4,7 @@ import About from "@/components/About";
 import Gallery from "@/components/Gallery";
 import ExploreVIC from "@/components/ExploreVIC";
 import Scenario from "@/components/Scenario";
-import FinalCTA from "@/components/FinalCTA";
+// import FinalCTA from "@/components/FinalCTA";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -17,7 +17,7 @@ export default function Home() {
         <Gallery />
         <ExploreVIC />
         <Scenario />
-        <FinalCTA />
+        {/* <FinalCTA /> */}
       </main>
       <Footer />
     </div>

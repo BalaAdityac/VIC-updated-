@@ -1,253 +1,197 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { getInternshipDetails, applyToInternship, Internship } from '@/lib/student-api';
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { getInternshipDetails, applyToInternship, Internship } from "@/lib/student-api";
+import {
+  Building2,
+  MapPin,
+  Clock,
+  ArrowLeft,
+  Loader2,
+  Globe,
+  Briefcase,
+  CheckCircle2,
+  FileText
+} from "lucide-react";
 
-export default function InternshipDetailPage() {
-  const { id } = useParams() as { id: string };
+export default function InternshipDetailsPage() {
+  const params = useParams();
   const router = useRouter();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [job, setJob] = useState<Internship | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // Application Modal & Form States
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [resumeUrl, setResumeUrl] = useState('');
-  const [coverLetter, setCoverLetter] = useState('');
-  const [portfolioUrl, setPortfolioUrl] = useState('');
-  const [githubUrl, setGithubUrl] = useState('');
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [coverLetter, setCoverLetter] = useState("I am excited to contribute my engineering skills to your organization.");
+  const [appliedSuccess, setAppliedSuccess] = useState(false);
 
   useEffect(() => {
-    async function loadData() {
-      setLoading(true);
+    async function load() {
+      if (!id) return;
       try {
         const data = await getInternshipDetails(id);
         setJob(data);
-      } catch (err: any) {
-        setFetchError(err.message || 'Could not load internship details.');
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     }
-    if (id) loadData();
+    load();
   }, [id]);
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(null);
+    if (!id || !job) return;
+    setApplying(true);
 
     try {
-      const response = await applyToInternship({
-        internshipId: id,
-        resumeUrl,
+      await applyToInternship(id, {
         coverLetter,
-        portfolioUrl,
-        githubUrl
+        resumeUrl: "https://storage.vic.edu/resumes/resume.pdf",
+        resumeFileName: "resume.pdf"
       });
-
-      setSubmitSuccess(response.message || 'Application submitted successfully!');
-      setTimeout(() => {
-        router.push('/student/applications');
-      }, 1500);
-    } catch (err: any) {
-      setSubmitError(err.message || 'Failed to submit application.');
+      setAppliedSuccess(true);
+      setTimeout(() => router.push("/student/applications"), 1500);
+    } catch (err) {
+      console.error(err);
     } finally {
-      setIsSubmitting(false);
+      setApplying(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-20 px-4 text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading opportunity details...</p>
+      <div className="min-h-[60vh] flex items-center justify-center font-sans">
+        <Loader2 className="w-8 h-8 animate-spin text-[#202960]" />
       </div>
     );
   }
 
-  if (fetchError || !job) {
+  if (!job) {
     return (
-      <div className="max-w-4xl mx-auto py-12 px-4">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl">
-          <h2 className="text-xl font-bold mb-2">Error Loading Internship</h2>
-          <p className="text-sm mb-4">{fetchError || 'Internship posting not found'}</p>
-          <Link href="/student/internships" className="text-blue-600 font-semibold underline">
-            ← Back to all internships
-          </Link>
-        </div>
+      <div className="max-w-4xl mx-auto p-8 text-center space-y-4 font-sans">
+        <h2 className="text-xl font-bold text-slate-800">Internship role not found</h2>
+        <Link href="/student/internships" className="text-xs font-bold text-[#202960] underline">
+          Browse active internships
+        </Link>
       </div>
     );
   }
+
+  const companyName =
+    typeof job.company === "object" ? job.company?.companyName : job.company || "Partner Organization";
+  const companyWebsite = typeof job.company === "object" ? job.company?.website : undefined;
+  const companyDescription = typeof job.company === "object" ? job.company?.description : undefined;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <Link href="/student/internships" className="text-sm font-semibold text-gray-500 hover:text-gray-900 mb-6 inline-block">
-        ← Back to Listings
+    <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6 font-sans">
+      <Link
+        href="/student/internships"
+        className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-[#202960]"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back to Live Openings
       </Link>
 
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b">
+      <div className="bg-white border border-[#3B3588]/10 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-slate-100">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900">{job.title}</h1>
-            <p className="text-lg text-gray-700 font-medium mt-1">{job.company?.companyName}</p>
-            {job.company?.website && (
-              <a href={job.company.website} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
-                {job.company.website}
+            <h1 className="text-2xl font-black text-[#1E1B4B]">{job.title}</h1>
+            <p className="text-sm text-slate-600 font-medium mt-1 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-slate-400" /> {companyName}
+            </p>
+            {companyWebsite && (
+              <a
+                href={companyWebsite}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-indigo-600 hover:underline flex items-center gap-1 mt-1"
+              >
+                <Globe className="w-3 h-3" /> {companyWebsite}
               </a>
             )}
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow transition"
-          >
-            Apply for this Role
-          </button>
+          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-black uppercase">
+            {job.mode}
+          </span>
         </div>
 
-        {/* Specifications Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-b">
-          <div>
-            <span className="block text-xs uppercase tracking-wider text-gray-400 font-bold">Location & Mode</span>
-            <span className="text-base font-semibold text-gray-800">{job.location} ({job.mode})</span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+          <div className="p-3.5 bg-[#F8F9FD] rounded-2xl">
+            <span className="text-[10px] text-slate-400 font-bold uppercase block">Monthly Stipend</span>
+            <span className="text-sm font-black text-[#202960]">{job.stipend}</span>
           </div>
-          <div>
-            <span className="block text-xs uppercase tracking-wider text-gray-400 font-bold">Stipend</span>
-            <span className="text-base font-semibold text-green-700">{job.stipend ? `₹${job.stipend}/mo` : 'Unpaid / Open'}</span>
+          <div className="p-3.5 bg-[#F8F9FD] rounded-2xl">
+            <span className="text-[10px] text-slate-400 font-bold uppercase block">Location</span>
+            <span className="text-sm font-bold text-slate-800">{job.location}</span>
           </div>
-          <div>
-            <span className="block text-xs uppercase tracking-wider text-gray-400 font-bold">Duration</span>
-            <span className="text-base font-semibold text-gray-800">{job.durationMonths ? `${job.durationMonths} Months` : 'Negotiable'}</span>
-          </div>
-          <div>
-            <span className="block text-xs uppercase tracking-wider text-gray-400 font-bold">Application Deadline</span>
-            <span className="text-base font-semibold text-gray-800">{job.deadline ? new Date(job.deadline).toLocaleDateString() : 'Rolling'}</span>
+          <div className="p-3.5 bg-[#F8F9FD] rounded-2xl">
+            <span className="text-[10px] text-slate-400 font-bold uppercase block">Duration</span>
+            <span className="text-sm font-bold text-slate-800">{job.durationMonths || 6} Months</span>
           </div>
         </div>
 
-        {/* Description & Responsibilities */}
-        <div className="py-6 border-b space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">Job Overview & Responsibilities</h2>
-          <div className="text-gray-700 text-base whitespace-pre-line leading-relaxed">
-            {job.description}
-          </div>
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold text-[#1E1B4B] uppercase tracking-wider">Role Description</h2>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {job.description || "Hands-on engineering position with direct architect mentorship and active project assignments."}
+          </p>
         </div>
 
-        {/* Skills */}
-        <div className="py-6 border-b">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">Required Technical Skills</h2>
-          <div className="flex flex-wrap gap-2">
-            {job.skills.map((skill, index) => (
-              <span key={index} className="bg-blue-50 text-blue-700 font-semibold px-3 py-1 rounded-lg text-sm">
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Company Info */}
-        {job.company?.description && (
-          <div className="pt-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">About {job.company.companyName}</h2>
-            <p className="text-gray-600 text-sm leading-relaxed">{job.company.description}</p>
+        {Array.isArray(job.skills) && job.skills.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold text-[#1E1B4B] uppercase tracking-wider">Required Skills</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {job.skills.map((skill: string, index: number) => (
+                <span
+                  key={index}
+                  className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-xs font-semibold text-slate-700 shadow-2xs"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Application Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl relative">
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Apply: {job.title}</h2>
-            <p className="text-sm text-gray-500 mb-6">{job.company?.companyName}</p>
-
-            {submitError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3.5 rounded-lg mb-4">
-                {submitError}
-              </div>
-            )}
-
-            {submitSuccess && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-3.5 rounded-lg mb-4 font-semibold">
-                {submitSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleApply} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Resume PDF Link *</label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/file/d/... or GitHub Raw URL"
-                  value={resumeUrl}
-                  onChange={(e) => setResumeUrl(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Cover Note / Summary (Optional)</label>
-                <textarea
-                  rows={3}
-                  placeholder="Highlight your project experience and why you are interested in this position..."
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Portfolio Link (Optional)</label>
-                  <input
-                    type="url"
-                    placeholder="https://myportfolio.dev"
-                    value={portfolioUrl}
-                    onChange={(e) => setPortfolioUrl(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">GitHub URL (Optional)</label>
-                  <input
-                    type="url"
-                    placeholder="https://github.com/my-profile"
-                    value={githubUrl}
-                    onChange={(e) => setGithubUrl(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t mt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Submitting...' : 'Confirm Application'}
-                </button>
-              </div>
-            </form>
+        {companyDescription && (
+          <div className="space-y-1.5 pt-4 border-t border-slate-100">
+            <h2 className="text-sm font-bold text-[#1E1B4B]">About {companyName}</h2>
+            <p className="text-xs text-slate-500 leading-relaxed">{companyDescription}</p>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Apply Section */}
+        <form onSubmit={handleApply} className="pt-6 border-t border-slate-100 space-y-4 text-xs">
+          {appliedSuccess && (
+            <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl flex items-center gap-2 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Application submitted successfully! Redirecting...
+            </div>
+          )}
+
+          <div>
+            <label className="block font-bold text-[#1E1B4B] mb-1">Cover Note to Recruiter</label>
+            <textarea
+              rows={3}
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              className="w-full p-3 rounded-2xl bg-[#F8F9FD] border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#202960]"
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={applying || appliedSuccess}
+              className="px-6 py-2.5 bg-[#202960] hover:bg-[#2E2A72] text-white font-bold rounded-full transition shadow-md cursor-pointer disabled:opacity-50"
+            >
+              {applying ? "Submitting..." : "Apply for Role"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
