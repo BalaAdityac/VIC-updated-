@@ -102,6 +102,9 @@ export default function SigninPage() {
           <div className="relative w-12 h-12 mx-auto rounded-2xl overflow-hidden border border-[#3B3588]/10 shadow-sm flex items-center justify-center bg-white">
             <Image src="/logo.jpg" alt="VIC Logo" width={48} height={48} className="object-contain" priority />
           </div>
+          <span className="text-base sm:text-lg font-black text-[#1E1B4B] uppercase tracking-wide whitespace-nowrap">
+            Visionary Interns Club
+          </span>
           {/* <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#202960]/5 text-[#202960] text-[10px] font-black uppercase tracking-wider">
             <Sparkles className="w-3 h-3" /> Secure Access Portal
           </div> */}
