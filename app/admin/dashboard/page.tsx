@@ -756,7 +756,7 @@ export default function AdminDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-200/60">
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Compensation</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Stipend</span>
                   <span className="font-black text-emerald-700">{selectedInspectApp.stipend}</span>
                 </div>
                 <div>
